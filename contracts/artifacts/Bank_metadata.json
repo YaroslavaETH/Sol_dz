@@ -1,0 +1,294 @@
+{
+	"compiler": {
+		"version": "0.8.28+commit.7893614a"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [],
+				"stateMutability": "nonpayable",
+				"type": "constructor"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "balance",
+						"type": "uint256"
+					}
+				],
+				"name": "WithdrawalAmountExceedsBalance",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					}
+				],
+				"name": "WithdrawalAmountZero",
+				"type": "error"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "Deposit",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "Withdrawal",
+				"type": "event"
+			},
+			{
+				"stateMutability": "payable",
+				"type": "fallback"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					}
+				],
+				"name": "balanceOf",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"name": "balances",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "deposit",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address payable",
+						"name": "account",
+						"type": "address"
+					}
+				],
+				"name": "escape",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"name": "locked",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address payable",
+						"name": "account",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "withdraw",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"stateMutability": "payable",
+				"type": "receive"
+			}
+		],
+		"devdoc": {
+			"errors": {
+				"WithdrawalAmountExceedsBalance(address,uint256,uint256)": [
+					{
+						"details": "Генерируется, когда сумма снятия превышает баланс счёта.",
+						"params": {
+							"account": "Адрес аккаунта, который пытался снять средства.",
+							"amount": "Сумма, которую пытались снять.",
+							"balance": "Текущий баланс аккаунта."
+						}
+					}
+				],
+				"WithdrawalAmountZero(address)": [
+					{
+						"details": "Генерируется, когда пытаются снять нулевую сумму.",
+						"params": {
+							"account": "Адрес аккаунта, который пытался снять средства."
+						}
+					}
+				]
+			},
+			"events": {
+				"Deposit(address,uint256)": {
+					"details": "Генерируется, когда на счёт аккаунта поступает депозит.",
+					"params": {
+						"account": "Адрес аккаунта, на который был сделан депозит.",
+						"amount": "Сумма, которая была внесена."
+					}
+				},
+				"Withdrawal(address,uint256)": {
+					"details": "Генерируется, когда со счёта снимаются средства.",
+					"params": {
+						"account": "Адрес счёта, с которого произошло снятие.",
+						"amount": "Сумма, которая была снята."
+					}
+				}
+			},
+			"kind": "dev",
+			"methods": {
+				"balanceOf(address)": {
+					"details": "Возвращает баланс счёта.",
+					"params": {
+						"account": "Адрес счёта."
+					},
+					"returns": {
+						"_0": "Баланс счёта."
+					}
+				},
+				"deposit()": {
+					"details": "Вносит средства на счёт."
+				},
+				"escape(address)": {
+					"details": "Владелец выводит все средства.",
+					"params": {
+						"account": "Адрес, на который выводятся средства."
+					}
+				},
+				"withdraw(address,uint256)": {
+					"details": "Снимает средства со счёта, вызвавшего функцию.",
+					"params": {
+						"account": "Адрес, на который выводятся средства.",
+						"amount": "Сумма, которую нужно снять."
+					}
+				}
+			},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/Bank.sol": "Bank"
+		},
+		"evmVersion": "cancun",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": true,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"contracts/Bank.sol": {
+			"keccak256": "0x3ba4c3c2e3fd62cd68ecdc8c8c1319409df80cdbebf0039cd7ee4e5b80c9caff",
+			"license": "UNLICENSED",
+			"urls": [
+				"bzz-raw://552dca22eef273f1a6a2c1ca664411a1eebd2cfd6eb5d6473e6a98875a8c4501",
+				"dweb:/ipfs/QmUj5rELuJFFipJPXw9BkaNHPr7gKayrgUADNWZFciZHkR"
+			]
+		},
+		"contracts/iBank.sol": {
+			"keccak256": "0x4985acafee425680d4a56a3bf3626ae88e3bf7d4ec501e5effa0950ddda7d9cd",
+			"license": "UNLICENSED",
+			"urls": [
+				"bzz-raw://70c6b994aa42aa5f567017320f5e0d71c835ec4bba7399e12975dd71a690f42f",
+				"dweb:/ipfs/QmYE7qDhevRKzxvRZ2reyBFEaBd35aTu3rLp6nXVyLrBsS"
+			]
+		}
+	},
+	"version": 1
+}

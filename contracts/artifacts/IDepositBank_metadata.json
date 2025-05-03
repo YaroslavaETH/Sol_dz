@@ -1,0 +1,243 @@
+{
+	"compiler": {
+		"version": "0.8.28+commit.7893614a"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "client",
+						"type": "address"
+					}
+				],
+				"name": "BalanceNonexceedClient",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "balance",
+						"type": "uint256"
+					}
+				],
+				"name": "WithdrawalAmountExceedsBalance",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					}
+				],
+				"name": "WithdrawalAmountZero",
+				"type": "error"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "Deposit",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "Withdrawal",
+				"type": "event"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					}
+				],
+				"name": "balanceOf",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "deposit",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "withdraw",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"errors": {
+				"BalanceNonexceedClient(address,address)": [
+					{
+						"details": "Генерируется, когда запрошен баланс несуществующего адреса.",
+						"params": {
+							"account": "Адрес аккаунта, который запрашивал баланс.",
+							"client": "Адрес, чей баланс хотели узнать"
+						}
+					}
+				],
+				"WithdrawalAmountExceedsBalance(address,uint256,uint256)": [
+					{
+						"details": "Генерируется, когда сумма снятия превышает баланс счёта.",
+						"params": {
+							"account": "Адрес аккаунта, который пытался снять средства.",
+							"amount": "Сумма, которую пытались снять.",
+							"balance": "Текущий баланс аккаунта."
+						}
+					}
+				],
+				"WithdrawalAmountZero(address)": [
+					{
+						"details": "Генерируется, когда пытаются снять нулевую сумму.",
+						"params": {
+							"account": "Адрес аккаунта, который пытался снять средства."
+						}
+					}
+				]
+			},
+			"events": {
+				"Deposit(address,uint256)": {
+					"details": "Генерируется, когда на счёт аккаунта поступает депозит.",
+					"params": {
+						"account": "Адрес аккаунта, на который был сделан депозит.",
+						"amount": "Сумма, которая была внесена."
+					}
+				},
+				"Withdrawal(address,uint256)": {
+					"details": "Генерируется, когда со счёта снимаются средства.",
+					"params": {
+						"account": "Адрес счёта, с которого произошло снятие.",
+						"amount": "Сумма, которая была снята."
+					}
+				}
+			},
+			"kind": "dev",
+			"methods": {
+				"balanceOf(address)": {
+					"details": "Возвращает баланс счёта.",
+					"params": {
+						"account": "Адрес счёта."
+					},
+					"returns": {
+						"_0": "Баланс счёта."
+					}
+				},
+				"deposit()": {
+					"details": "Вносит средства на счёт."
+				},
+				"withdraw(uint256)": {
+					"details": "Снимает средства со счёта.",
+					"params": {
+						"amount": "Сумма, которую нужно снять."
+					}
+				}
+			},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/iDepositBank.sol": "IDepositBank"
+		},
+		"evmVersion": "cancun",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": true,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"contracts/iBank.sol": {
+			"keccak256": "0x8f6bfd95e7b3b054f0a32af238934d21288d5640bd1a5fd275a3ba1e9fd71043",
+			"license": "UNLICENSED",
+			"urls": [
+				"bzz-raw://a7c6e316dc1cfc153ed35120b43e7e014376edf7428967d23537c1d6bdcf1337",
+				"dweb:/ipfs/Qmey5Kr8nfL2NdwKnUxfAKFE55NNFD5tK1828s12CYrz1V"
+			]
+		},
+		"contracts/iDepositBank.sol": {
+			"keccak256": "0x1417ccf107ecbd7dc71282149364b288b86af8ab49e9e6443089a437dfced2d4",
+			"license": "UNLICENSED",
+			"urls": [
+				"bzz-raw://78456d98d95da625fab11139c8091a60615f7f7b3fb540cfc8e8b82b814a2660",
+				"dweb:/ipfs/Qmdinva5AAAGSa8gyMRRYGCyy2fG8tSeuwgr8z2vvaWedQ"
+			]
+		}
+	},
+	"version": 1
+}
