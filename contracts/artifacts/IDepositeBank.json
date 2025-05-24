@@ -51,10 +51,38 @@
 		"methodIdentifiers": {
 			"balanceOf(address)": "70a08231",
 			"deposit()": "d0e30db0",
+			"escape(address)": "9cb6ed7e",
 			"withdraw(uint256)": "2e1a7d4d"
 		}
 	},
 	"abi": [
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "account",
+					"type": "address"
+				},
+				{
+					"internalType": "uint256",
+					"name": "amount",
+					"type": "uint256"
+				}
+			],
+			"name": "CouldNotWithdraw",
+			"type": "error"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "account",
+					"type": "address"
+				}
+			],
+			"name": "DepositAmountZero",
+			"type": "error"
+		},
 		{
 			"inputs": [
 				{
@@ -149,6 +177,19 @@
 			"name": "deposit",
 			"outputs": [],
 			"stateMutability": "payable",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "account",
+					"type": "address"
+				}
+			],
+			"name": "escape",
+			"outputs": [],
+			"stateMutability": "nonpayable",
 			"type": "function"
 		},
 		{

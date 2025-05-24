@@ -16,6 +16,33 @@
 						"internalType": "uint256",
 						"name": "amount",
 						"type": "uint256"
+					}
+				],
+				"name": "CouldNotWithdraw",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					}
+				],
+				"name": "DepositAmountZero",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
 					},
 					{
 						"internalType": "uint256",
@@ -104,6 +131,19 @@
 			{
 				"inputs": [
 					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					}
+				],
+				"name": "escape",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
 						"internalType": "uint256",
 						"name": "amount",
 						"type": "uint256"
@@ -116,8 +156,24 @@
 			}
 		],
 		"devdoc": {
-			"details": "Интерфейс для контракта-банка нативной валюты, предоставляющий основные банковские функции.",
 			"errors": {
+				"CouldNotWithdraw(address,uint256)": [
+					{
+						"details": "Генерируется, когда не удалось отправить средств на аккаунт ",
+						"params": {
+							"account": "Адрес аккаунта, который пытался снять средства.",
+							"amount": "Сумма, которую пытались снять."
+						}
+					}
+				],
+				"DepositAmountZero(address)": [
+					{
+						"details": "Генерируется, когда пытаются внести нулевую сумму.",
+						"params": {
+							"account": "Адрес аккаунта, который пытался внести средства."
+						}
+					}
+				],
 				"WithdrawalAmountExceedsBalance(address,uint256,uint256)": [
 					{
 						"details": "Генерируется, когда сумма снятия превышает баланс счёта.",
@@ -167,6 +223,12 @@
 				"deposit()": {
 					"details": "Вносит средства на счёт."
 				},
+				"escape(address)": {
+					"details": "Владелец выводит все средства.",
+					"params": {
+						"account": "Адрес, на который выводятся средства."
+					}
+				},
 				"withdraw(uint256)": {
 					"details": "Снимает средства со счёта.",
 					"params": {
@@ -174,7 +236,6 @@
 					}
 				}
 			},
-			"title": "INativeBank",
 			"version": 1
 		},
 		"userdoc": {
@@ -185,7 +246,7 @@
 	},
 	"settings": {
 		"compilationTarget": {
-			"contracts/iBank.sol": "INativeBank"
+			"contracts/iDepositBank.sol": "IDepositeBank"
 		},
 		"evmVersion": "cancun",
 		"libraries": {},
@@ -205,6 +266,14 @@
 			"urls": [
 				"bzz-raw://a7c6e316dc1cfc153ed35120b43e7e014376edf7428967d23537c1d6bdcf1337",
 				"dweb:/ipfs/Qmey5Kr8nfL2NdwKnUxfAKFE55NNFD5tK1828s12CYrz1V"
+			]
+		},
+		"contracts/iDepositBank.sol": {
+			"keccak256": "0xf4a14df627d46ee3c1bbdf0b0d406c2b595f896ddb32f15284d90b4d6a15334c",
+			"license": "UNLICENSED",
+			"urls": [
+				"bzz-raw://5c49a821c6f023cdd5e1d4cc6719f975797106f483169528d2b910b7b42b1b35",
+				"dweb:/ipfs/QmRJt7mBxAaYp1FuXzJhnrbqBfxRb18BkXYjbrDLq5N1V3"
 			]
 		}
 	},

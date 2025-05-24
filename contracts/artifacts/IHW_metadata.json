@@ -1,6 +1,6 @@
 {
 	"compiler": {
-		"version": "0.8.28+commit.7893614a"
+		"version": "0.8.30+commit.73712a01"
 	},
 	"language": "Solidity",
 	"output": {
@@ -185,26 +185,26 @@
 	},
 	"settings": {
 		"compilationTarget": {
-			"contracts/iBank.sol": "INativeBank"
+			"contracts/iHWERC20.sol": "IHW"
 		},
-		"evmVersion": "cancun",
+		"evmVersion": "prague",
 		"libraries": {},
 		"metadata": {
 			"bytecodeHash": "ipfs"
 		},
 		"optimizer": {
-			"enabled": true,
+			"enabled": false,
 			"runs": 200
 		},
 		"remappings": []
 	},
 	"sources": {
-		"contracts/iBank.sol": {
-			"keccak256": "0x8f6bfd95e7b3b054f0a32af238934d21288d5640bd1a5fd275a3ba1e9fd71043",
+		"contracts/iHWERC20.sol": {
+			"keccak256": "0xabee8339f4b96a0f68d9e3da8701a8c17f7af6ce84fcc8781e369ae239cc9832",
 			"license": "UNLICENSED",
 			"urls": [
-				"bzz-raw://a7c6e316dc1cfc153ed35120b43e7e014376edf7428967d23537c1d6bdcf1337",
-				"dweb:/ipfs/Qmey5Kr8nfL2NdwKnUxfAKFE55NNFD5tK1828s12CYrz1V"
+				"bzz-raw://cb8cc450ff49c3f4a6a33e04b2f560ed38da77ecf5b85d56368d6cd702f39de3",
+				"dweb:/ipfs/QmeX1u5MNJkTrxBsNfZ3DZtjUF3K6uYmEQtuWZQp9svzqY"
 			]
 		}
 	},

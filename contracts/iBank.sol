@@ -47,15 +47,8 @@ interface INativeBank {
     function deposit() external payable;
     
     /**
-     * @dev Снимает средства со счёта, вызвавшего функцию.
-     * @param account Адрес, на который выводятся средства.
+     * @dev Снимает средства со счёта.
      * @param amount Сумма, которую нужно снять.
      */
-    function withdraw(address payable account, uint256 amount) external payable;
-    
-    /**
-     * @dev Владелец выводит все средства.
-     * @param account Адрес, на который выводятся средства.
-     */
-    function escape(address payable account) external payable;
+    function withdraw(uint256 amount) external;
 }

@@ -1,0 +1,799 @@
+{
+	"compiler": {
+		"version": "0.8.30+commit.73712a01"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "CouldNotWithdraw",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "spender",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "allowance",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "needed",
+						"type": "uint256"
+					}
+				],
+				"name": "ERC20InsufficientAllowance",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "sender",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "balance",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "needed",
+						"type": "uint256"
+					}
+				],
+				"name": "ERC20InsufficientBalance",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "approver",
+						"type": "address"
+					}
+				],
+				"name": "ERC20InvalidApprover",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "receiver",
+						"type": "address"
+					}
+				],
+				"name": "ERC20InvalidReceiver",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "sender",
+						"type": "address"
+					}
+				],
+				"name": "ERC20InvalidSender",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "spender",
+						"type": "address"
+					}
+				],
+				"name": "ERC20InvalidSpender",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "balance",
+						"type": "uint256"
+					}
+				],
+				"name": "WithdrawalAmountExceedsBalance",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					}
+				],
+				"name": "WithdrawalAmountZero",
+				"type": "error"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "_owner",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "_spender",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "_value",
+						"type": "uint256"
+					}
+				],
+				"name": "Approval",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "_owner",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "_spender",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "_oldValue",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "_value",
+						"type": "uint256"
+					}
+				],
+				"name": "Approval",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "_to",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "_value",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "_exchangeRate",
+						"type": "uint256"
+					}
+				],
+				"name": "Buy",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "uint8",
+						"name": "_exchangeRate",
+						"type": "uint8"
+					}
+				],
+				"name": "SetExchangeRate",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "_from",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "_to",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "_value",
+						"type": "uint256"
+					}
+				],
+				"name": "Transfer",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "_spender",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "_from",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "_to",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "_value",
+						"type": "uint256"
+					}
+				],
+				"name": "Transfer",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "Withdrawal",
+				"type": "event"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_owner",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "_spender",
+						"type": "address"
+					}
+				],
+				"name": "allowance",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "remaining",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_spender",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_currentValue",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_value",
+						"type": "uint256"
+					}
+				],
+				"name": "approve",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "success",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_owner",
+						"type": "address"
+					}
+				],
+				"name": "balanceOf",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "balance",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "buy",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "decimals",
+				"outputs": [
+					{
+						"internalType": "uint8",
+						"name": "",
+						"type": "uint8"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "exchangeRate",
+				"outputs": [
+					{
+						"internalType": "uint8",
+						"name": "",
+						"type": "uint8"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "name",
+				"outputs": [
+					{
+						"internalType": "string",
+						"name": "",
+						"type": "string"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "ownerToken",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint8",
+						"name": "_exchangeRate",
+						"type": "uint8"
+					}
+				],
+				"name": "setExchangeRate",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "success",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "symbol",
+				"outputs": [
+					{
+						"internalType": "string",
+						"name": "",
+						"type": "string"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "totalSupply",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_to",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_value",
+						"type": "uint256"
+					}
+				],
+				"name": "transfer",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "success",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_from",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "_to",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_value",
+						"type": "uint256"
+					}
+				],
+				"name": "transferFrom",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "success",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "withdraw",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"errors": {
+				"CouldNotWithdraw(address,uint256)": [
+					{
+						"details": "Генерируется, когда не удалось отправить средств на аккаунт ",
+						"params": {
+							"account": "Адрес аккаунта, который пытался снять средства.",
+							"amount": "Сумма, которую пытались снять."
+						}
+					}
+				],
+				"ERC20InsufficientAllowance(address,uint256,uint256)": [
+					{
+						"details": "Генерируется, когда допустимый разрешенный остаток к снятию превышает запрашиваемый на перевод.",
+						"params": {
+							"allowance": "Текущий остаток допустимый к снятию.",
+							"needed": "Сумма, которую пытались снять.",
+							"spender": "Адрес аккаунта, который пытался снять средства."
+						}
+					}
+				],
+				"ERC20InsufficientBalance(address,uint256,uint256)": [
+					{
+						"details": "Генерируется, когда сумма снятия превышает баланс счёта.",
+						"params": {
+							"balance": "Текущий остаток.",
+							"needed": "Сумма, которую пытались снять.",
+							"sender": "Адрес аккаунта, c которого пытались снять средства."
+						}
+					}
+				],
+				"ERC20InvalidApprover(address)": [
+					{
+						"details": "Генерируется при нулевом адресе донора",
+						"params": {
+							"approver": "Адрес донор."
+						}
+					}
+				],
+				"ERC20InvalidReceiver(address)": [
+					{
+						"details": "Генерируется при нулевом адресе отправителе",
+						"params": {
+							"receiver": "Адрес получатель средств."
+						}
+					}
+				],
+				"ERC20InvalidSender(address)": [
+					{
+						"details": "Генерируется при нулевом адресе отправителе",
+						"params": {
+							"sender": "Адрес отправитель средств."
+						}
+					}
+				],
+				"ERC20InvalidSpender(address)": [
+					{
+						"details": "Генерируется при попытке дать разрешение нулевому адресу или владельцу",
+						"params": {
+							"spender": "Адрес получатель."
+						}
+					}
+				],
+				"WithdrawalAmountExceedsBalance(address,uint256,uint256)": [
+					{
+						"details": "Генерируется, когда сумма снятия превышает баланс счёта.",
+						"params": {
+							"account": "Адрес аккаунта, который пытался снять средства.",
+							"amount": "Сумма, которую пытались снять.",
+							"balance": "Текущий баланс контракта."
+						}
+					}
+				],
+				"WithdrawalAmountZero(address)": [
+					{
+						"details": "Генерируется, когда пытаются снять нулевую сумму.",
+						"params": {
+							"account": "Адрес аккаунта, который пытался снять средства."
+						}
+					}
+				]
+			},
+			"events": {
+				"Approval(address,address,uint256)": {
+					"details": "Генерируется при установке разрешения донорства..",
+					"params": {
+						"_owner": "Адрес донор.",
+						"_spender": "Адрес реципиент.",
+						"_value": "Допустимое к снятию количество."
+					}
+				},
+				"Approval(address,address,uint256,uint256)": {
+					"details": "Генерируется при установке разрешения донорства.",
+					"params": {
+						"_oldValue": "Старый остаток допустимый к снятию.",
+						"_owner": "Адрес донор.",
+						"_spender": "Адрес реципиент.",
+						"_value": "Допустимое к снятию количество."
+					}
+				},
+				"Buy(address,uint256,uint256)": {
+					"details": "Генерируется при покупке новых токенов.",
+					"params": {
+						"_exchangeRate": "Курс покупки.",
+						"_to": "Адрес кто купил.",
+						"_value": "Количество токенов."
+					}
+				},
+				"SetExchangeRate(uint8)": {
+					"details": "Генерируется при установке нового курса.",
+					"params": {
+						"_exchangeRate": "новый курс к eth."
+					}
+				},
+				"Transfer(address,address,address,uint256)": {
+					"details": "Генерируется при переводе токенов методом transferFrom.",
+					"params": {
+						"_from": "Адрес отправитель средств.",
+						"_spender": "Адрес реципиент.",
+						"_to": "Адрес получатель средств.",
+						"_value": "Переводимое количество."
+					}
+				},
+				"Transfer(address,address,uint256)": {
+					"details": "Генерируется при переводе токенов.",
+					"params": {
+						"_from": "Адрес отправитель средств.",
+						"_to": "Адрес получатель средств.",
+						"_value": "Переводимое количество."
+					}
+				},
+				"Withdrawal(address,uint256)": {
+					"details": "Генерируется, когда владелец выводит со счёта контракта средства.",
+					"params": {
+						"account": "Адрес на котороый переводятся средства.",
+						"amount": "Сумма, которая была снята."
+					}
+				}
+			},
+			"kind": "dev",
+			"methods": {
+				"allowance(address,address)": {
+					"details": "Возвращает сумму, которая доступна к снятию реципиентом у донора.",
+					"params": {
+						"_owner": "Адрес донор.",
+						"_spender": "Адрес реципиент."
+					}
+				},
+				"approve(address,uint256,uint256)": {
+					"details": "Дает разрешение стороннему адресу снимать средства со счета владельца несколько раз, вплоть до указанной суммы.",
+					"params": {
+						"_currentValue": "Текущий остаток допустимый к снятию.",
+						"_spender": "Адрес реципиент.",
+						"_value": "Допустимое к снятию количество."
+					}
+				},
+				"balanceOf(address)": {
+					"details": "Возвращает остаток на счете.",
+					"params": {
+						"_owner": "Адрес, баланс которого нужно проверить."
+					}
+				},
+				"buy()": {
+					"details": "Покупка токенов."
+				},
+				"decimals()": {
+					"details": "Возвращает количество десятичных знаков, используемых токеном. "
+				},
+				"exchangeRate()": {
+					"details": "Возвращает текущий курс к eth. "
+				},
+				"name()": {
+					"details": "Возвращает имя токена. "
+				},
+				"ownerToken()": {
+					"details": "Возвращает владельца. "
+				},
+				"setExchangeRate(uint8)": {
+					"details": "Устанавливает новый курс, доступно только владельцу контракта.",
+					"params": {
+						"_exchangeRate": "новый курс к eth."
+					}
+				},
+				"symbol()": {
+					"details": "Возвращает тикер токена."
+				},
+				"totalSupply()": {
+					"details": "Возвращает общее количество токенов. "
+				},
+				"transfer(address,uint256)": {
+					"details": "Переводит сумму токенов на указанный адрес.",
+					"params": {
+						"_to": "Адрес получатель средств.",
+						"_value": "Переводимое количество."
+					}
+				},
+				"transferFrom(address,address,uint256)": {
+					"details": "Переводит количество токенов с адреса на адрес.",
+					"params": {
+						"_from": "Адрес отправитель средств.",
+						"_to": "Адрес получатель средств.",
+						"_value": "Переводимое количество."
+					}
+				},
+				"withdraw(uint256)": {
+					"details": "Снимает средства со счёта. Доступно только владельцу контракта.",
+					"params": {
+						"amount": "Сумма, которую нужно снять."
+					}
+				}
+			},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/iHwERC20.sol": "IHwERC6093"
+		},
+		"evmVersion": "prague",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": true,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"contracts/iHwERC20.sol": {
+			"keccak256": "0x3805ddd2aa2d1b2e465478ae054f4a48f7f95e71d18d101861be44bd15e6daa9",
+			"license": "UNLICENSED",
+			"urls": [
+				"bzz-raw://8d5b05131fbb9af36aa37220b4440bb6bcd42e6e750cb3a9de2aa95a7fac82cc",
+				"dweb:/ipfs/QmQWCoHKmdKdk7gix1gAAd8h3owsbBdBWwWu5kJfZUUQMb"
+			]
+		}
+	},
+	"version": 1
+}

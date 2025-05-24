@@ -21,6 +21,33 @@
 						"internalType": "uint256",
 						"name": "amount",
 						"type": "uint256"
+					}
+				],
+				"name": "CouldNotWithdraw",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					}
+				],
+				"name": "DepositAmountZero",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
 					},
 					{
 						"internalType": "uint256",
@@ -81,10 +108,6 @@
 				"type": "event"
 			},
 			{
-				"stateMutability": "payable",
-				"type": "fallback"
-			},
-			{
 				"inputs": [
 					{
 						"internalType": "address",
@@ -96,26 +119,7 @@
 				"outputs": [
 					{
 						"internalType": "uint256",
-						"name": "",
-						"type": "uint256"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "address",
-						"name": "",
-						"type": "address"
-					}
-				],
-				"name": "balances",
-				"outputs": [
-					{
-						"internalType": "uint256",
-						"name": "",
+						"name": "amount",
 						"type": "uint256"
 					}
 				],
@@ -132,42 +136,18 @@
 			{
 				"inputs": [
 					{
-						"internalType": "address payable",
+						"internalType": "address",
 						"name": "account",
 						"type": "address"
 					}
 				],
 				"name": "escape",
 				"outputs": [],
-				"stateMutability": "payable",
+				"stateMutability": "nonpayable",
 				"type": "function"
 			},
 			{
 				"inputs": [
-					{
-						"internalType": "address",
-						"name": "",
-						"type": "address"
-					}
-				],
-				"name": "locked",
-				"outputs": [
-					{
-						"internalType": "bool",
-						"name": "",
-						"type": "bool"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "address payable",
-						"name": "account",
-						"type": "address"
-					},
 					{
 						"internalType": "uint256",
 						"name": "amount",
@@ -176,7 +156,7 @@
 				],
 				"name": "withdraw",
 				"outputs": [],
-				"stateMutability": "payable",
+				"stateMutability": "nonpayable",
 				"type": "function"
 			},
 			{
@@ -186,6 +166,23 @@
 		],
 		"devdoc": {
 			"errors": {
+				"CouldNotWithdraw(address,uint256)": [
+					{
+						"details": "Генерируется, когда не удалось отправить средств на аккаунт ",
+						"params": {
+							"account": "Адрес аккаунта, который пытался снять средства.",
+							"amount": "Сумма, которую пытались снять."
+						}
+					}
+				],
+				"DepositAmountZero(address)": [
+					{
+						"details": "Генерируется, когда пытаются внести нулевую сумму.",
+						"params": {
+							"account": "Адрес аккаунта, который пытался внести средства."
+						}
+					}
+				],
 				"WithdrawalAmountExceedsBalance(address,uint256,uint256)": [
 					{
 						"details": "Генерируется, когда сумма снятия превышает баланс счёта.",
@@ -223,15 +220,6 @@
 			},
 			"kind": "dev",
 			"methods": {
-				"balanceOf(address)": {
-					"details": "Возвращает баланс счёта.",
-					"params": {
-						"account": "Адрес счёта."
-					},
-					"returns": {
-						"_0": "Баланс счёта."
-					}
-				},
 				"deposit()": {
 					"details": "Вносит средства на счёт."
 				},
@@ -241,11 +229,22 @@
 						"account": "Адрес, на который выводятся средства."
 					}
 				},
-				"withdraw(address,uint256)": {
-					"details": "Снимает средства со счёта, вызвавшего функцию.",
+				"withdraw(uint256)": {
+					"details": "Снимает средства со счёта.",
 					"params": {
-						"account": "Адрес, на который выводятся средства.",
 						"amount": "Сумма, которую нужно снять."
+					}
+				}
+			},
+			"stateVariables": {
+				"balanceOf": {
+					"details": "Возвращает баланс счёта.",
+					"params": {
+						"account": "Адрес счёта."
+					},
+					"return": "amount Баланс счёта.",
+					"returns": {
+						"amount": "Баланс счёта."
 					}
 				}
 			},
@@ -274,19 +273,27 @@
 	},
 	"sources": {
 		"contracts/Bank.sol": {
-			"keccak256": "0x3ba4c3c2e3fd62cd68ecdc8c8c1319409df80cdbebf0039cd7ee4e5b80c9caff",
+			"keccak256": "0x757992866b0143e78c5981939c03c7f9c9302d4f97c52b0230a0939e7cf0d022",
 			"license": "UNLICENSED",
 			"urls": [
-				"bzz-raw://552dca22eef273f1a6a2c1ca664411a1eebd2cfd6eb5d6473e6a98875a8c4501",
-				"dweb:/ipfs/QmUj5rELuJFFipJPXw9BkaNHPr7gKayrgUADNWZFciZHkR"
+				"bzz-raw://f5739044584c3c73d701e36c14203be67a25b85d2e7ee21e5689506f2f96cc8a",
+				"dweb:/ipfs/QmQQ3irdaE9o4CwRnzKn4qmqHhyJu16FrDrW9LfqostFf1"
 			]
 		},
 		"contracts/iBank.sol": {
-			"keccak256": "0x4985acafee425680d4a56a3bf3626ae88e3bf7d4ec501e5effa0950ddda7d9cd",
+			"keccak256": "0x8f6bfd95e7b3b054f0a32af238934d21288d5640bd1a5fd275a3ba1e9fd71043",
 			"license": "UNLICENSED",
 			"urls": [
-				"bzz-raw://70c6b994aa42aa5f567017320f5e0d71c835ec4bba7399e12975dd71a690f42f",
-				"dweb:/ipfs/QmYE7qDhevRKzxvRZ2reyBFEaBd35aTu3rLp6nXVyLrBsS"
+				"bzz-raw://a7c6e316dc1cfc153ed35120b43e7e014376edf7428967d23537c1d6bdcf1337",
+				"dweb:/ipfs/Qmey5Kr8nfL2NdwKnUxfAKFE55NNFD5tK1828s12CYrz1V"
+			]
+		},
+		"contracts/iDepositBank.sol": {
+			"keccak256": "0xf4a14df627d46ee3c1bbdf0b0d406c2b595f896ddb32f15284d90b4d6a15334c",
+			"license": "UNLICENSED",
+			"urls": [
+				"bzz-raw://5c49a821c6f023cdd5e1d4cc6719f975797106f483169528d2b910b7b42b1b35",
+				"dweb:/ipfs/QmRJt7mBxAaYp1FuXzJhnrbqBfxRb18BkXYjbrDLq5N1V3"
 			]
 		}
 	},
