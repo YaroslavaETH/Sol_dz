@@ -4,17 +4,17 @@ pragma solidity ^0.8.29;
 contract SellNicknames {
     string public nicknameSpace; // название пространства никнеймов
     address public owner; // владелец пространства
-    uint256 public price; // текущая цена покупки ника
+    uint32 public price; // текущая цена покупки ника
     mapping (string nickname => address ownerNickname) public ownerOf; // владельцы ников
 
     
     error NicknameIsBusy(address _ownerNickname); // ошибка при невозможности купить ник, т.к. он уже занят
-    error AnotherPrice(uint256 _currentPrice, uint256 _tryPrice); // ошибка при невозможности купить ник, т.к. не соотв. текущей цене
+    error AnotherPrice(uint32 _currentPrice, uint256 _tryPrice); // ошибка при невозможности купить ник, т.к. не соотв. текущей цене
     error NotTheOwner(); // ошибка при попытке выполнить операцию доступную только владельцу кем-либо еще
     error RandomCall(); // ошибка обращения к контракту
 
     event BuyNickname(address indexed _ownerNickname, string indexed _nickname); // событие покупки ника
-    event NewPrice(uint256 indexed _price); // событие установки новой цены
+    event NewPrice(uint32 indexed _price); // событие установки новой цены
     
     /**
      * @notice Конструктор, инициализирующий пространство никнеймов.
@@ -39,7 +39,7 @@ contract SellNicknames {
      * @dev Может быть вызвана только владельцем контракта. Генерирует событие NewPrice.
      * @param _price Новая цена для никнейма.
      */
-    function setPrice(uint256 _price) public onlyOwner{
+    function setPrice(uint32 _price) public onlyOwner{
         price = _price;
         emit NewPrice(_price);
     }
@@ -53,7 +53,7 @@ contract SellNicknames {
     function buyNickname(string calldata _nickname) external payable {
         address _currentOwner = ownerOf[_nickname];
         if(_currentOwner != address(0)) revert NicknameIsBusy(_currentOwner);
-        uint256 _price = price;
+        uint32 _price = price;
         if (msg.value != _price) revert AnotherPrice(_price, msg.value);
 
         ownerOf[_nickname] = msg.sender;

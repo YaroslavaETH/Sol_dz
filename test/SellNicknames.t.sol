@@ -9,7 +9,7 @@ contract SellNicknamesTest is Test {
     SellNicknames public sellNicknames;
 
     event BuyNickname(address indexed _ownerNickname, string indexed _nickname);
-    event NewPrice(uint256 indexed _price);
+    event NewPrice(uint32 indexed _price);
 
     address _otherAddress = makeAddr("_otherAddress");
 
@@ -41,7 +41,7 @@ contract SellNicknamesTest is Test {
      * @notice Фаззинг-тест для функции `setPrice`.
      * @dev Проверяет, что функция `setPrice` корректно устанавливает цену для различных значений.
      */
-    function testFuzz_setPrice(uint256 x) public {
+    function testFuzz_setPrice(uint32 x) public {
         sellNicknames.setPrice(x);
         assertEq(sellNicknames.price(), x);
     }
@@ -62,7 +62,7 @@ contract SellNicknamesTest is Test {
      */
     function test_setPriceEventNewPrice() public {
         vm.expectEmit(true, true, true, false);
-        uint256 _newPrice = 14;
+        uint32 _newPrice = 14;
         emit NewPrice(_newPrice);
         sellNicknames.setPrice(_newPrice);
     }
@@ -87,7 +87,7 @@ contract SellNicknamesTest is Test {
      */
     function test_buyNicknameNicknameIsBusy() public {
         string memory _nickname = "Zevs";
-        uint256 _price = sellNicknames.price();
+        uint32 _price = sellNicknames.price();
         vm.prank(_otherAddress);
         sellNicknames.buyNickname{value: _price}(_nickname);
         vm.expectRevert(
@@ -105,8 +105,8 @@ contract SellNicknamesTest is Test {
      */
     function test_buyNicknameAnotherPrice() public {
         string memory _nickname = "Zevs";
-        uint256 _currentprice = sellNicknames.price();
-        uint256 _price = _currentprice + 1;
+        uint32 _currentprice = sellNicknames.price();
+        uint32 _price = _currentprice + 1;
         vm.expectRevert(
             abi.encodeWithSelector(
                 SellNicknames.AnotherPrice.selector,
