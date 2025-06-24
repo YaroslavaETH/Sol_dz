@@ -25,7 +25,7 @@ contract SellNicknamesTest is Test {
      * @notice Проверяет, что владелец контракта установлен правильно.
      * @dev Убеждается, что `owner()` возвращает адрес тестового контракта.
      */
-    function test_owner() public {
+    function test_owner() public view {
         assertEq(sellNicknames.owner(), address(this));
     }
 
@@ -33,7 +33,7 @@ contract SellNicknamesTest is Test {
      * @notice Проверяет, что пространство никнеймов установлено правильно.
      * @dev Убеждается, что `nicknameSpace()` возвращает "TestSpace", заданное в конструкторе.
      */
-    function test_nicknameSpace() public {
+    function test_nicknameSpace() public view {
         assertEq(sellNicknames.nicknameSpace(), "TestSpace");
     }
 

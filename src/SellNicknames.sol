@@ -3,7 +3,7 @@ pragma solidity ^0.8.29;
 
 contract SellNicknames {
     string public nicknameSpace; // название пространства никнеймов
-    address public owner; // владелец пространства
+    address public immutable owner; // владелец пространства
     uint32 public price; // текущая цена покупки ника
     mapping (string nickname => address ownerNickname) public ownerOf; // владельцы ников
 
@@ -20,7 +20,7 @@ contract SellNicknames {
      * @notice Конструктор, инициализирующий пространство никнеймов.
      * @param _nicknameSpace Название пространства никнеймов.
      */
-    constructor(string memory _nicknameSpace) {
+    constructor(string memory _nicknameSpace) payable {
         nicknameSpace = _nicknameSpace;
         owner = msg.sender;
     }
@@ -39,7 +39,7 @@ contract SellNicknames {
      * @dev Может быть вызвана только владельцем контракта. Генерирует событие NewPrice.
      * @param _price Новая цена для никнейма.
      */
-    function setPrice(uint32 _price) public onlyOwner{
+    function setPrice(uint32 _price) public payable onlyOwner{
         price = _price;
         emit NewPrice(_price);
     }
