@@ -6,7 +6,12 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {WeValue} from "./WeValue.sol";
 
-// Контракта фабрики CloneWeValue
+/**
+ * @title Фабрика для создания клонов контракта WeValue
+ * @author YaroslavaETH
+ * @notice Этот контракт позволяет владельцу развертывать дешевые,
+ * детерминированные прокси-контракты (клоны) на основе реализации WeValue.
+ */
 contract CloneWeValue is Ownable {
     error ImplementationIsNotAContract(address implementation);
 
@@ -14,7 +19,12 @@ contract CloneWeValue is Ownable {
     
     constructor(address initialOwner) Ownable(initialOwner) {}
     
-    // Возвращает адрес будущего прокси
+    /**
+     * @notice Предсказывает адрес будущего прокси-контракта без его развертывания.
+     * @param implementation Адрес контракта-реализации.
+     * @param salt Произвольное значение для детерминированного вычисления адреса.
+     * @return predicted Предсказанный адрес.
+     */
     function predictNewAddress(
         address implementation,
         bytes32 salt
@@ -25,7 +35,12 @@ contract CloneWeValue is Ownable {
             address(this));
     }
 
-    // Деплой прокси через CREATE2
+    /**
+     * @notice Развертывает новый прокси-контракт (клон) через CREATE2.
+     * @dev Может быть вызвана только владельцем.
+     * @param implementation Адрес контракта-реализации.
+     * @param salt Произвольное значение, используемое для развертывания.
+     */
     function deployWeValue(
         address implementation,
         bytes32 salt
