@@ -56,6 +56,9 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
 
     /// @notice Событие, возникающее после конвертации ETH баланса контракта в PROTECTED_ASSET.
     event EthConverted(uint256 ethAmount, uint256 protectedAssetAmount);
+
+    /// @notice Событие, возникающее после ротации активов, когда SAFE_ASSET становится новым PROTECTED_ASSET.
+    event ProtectedAssetRotated(address indexed oldProtectedAsset, address indexed newProtectedAsset);
     
     /// @dev Вызывается при попытке пожертвовать 0 ETH.
     error NullDonation(address account);
@@ -316,6 +319,14 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
                 0
             );
         }
+
+        // После успешной эвакуации, производим ротацию активов:
+        // бывший "безопасный" актив становится новым "защищаемым".
+        address oldProtectedAsset = address(PROTECTED_ASSET);
+        PROTECTED_ASSET = SAFE_ASSET;
+        PRICE_ORACLE = SAFE_ASSET_PRICE_ORACLE;
+
+        emit ProtectedAssetRotated(oldProtectedAsset, address(PROTECTED_ASSET));
 
         _evacuating = false;
     }
