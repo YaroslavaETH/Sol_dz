@@ -279,13 +279,15 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
      * @param flashLoanAmount Сумма SAFE_ASSET, которую нужно занять для манипуляции.
      * @param manipulationMinReturn Минимальное количество PROTECTED_ASSET, ожидаемое от манипулятивного обмена.
      * @param evacuationMinReturn Минимальное количество SAFE_ASSET, ожидаемое от основного обмена.
+     * @param simpleSwapMinReturn Ожидаемый результат от простого обмена (для проверки прибыльности).
      */
     function evacuateIfDepegged(
         address[] calldata manipulationPools,
         address[] calldata evacuationPools,
         uint256 flashLoanAmount,
         uint256 manipulationMinReturn,
-        uint256 evacuationMinReturn
+        uint256 evacuationMinReturn,
+        uint256 simpleSwapMinReturn
     ) external {
         if (_evacuating) {
             revert EvacuationInProgress();
@@ -305,7 +307,7 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
         uint256 amountToEvacuate = PROTECTED_ASSET.balanceOf(address(this));
         if (amountToEvacuate > 0) {
             // Передаем все необходимые параметры в колбэк
-            bytes memory params = abi.encode(amountToEvacuate, manipulationPools, evacuationPools, manipulationMinReturn, evacuationMinReturn);
+            bytes memory params = abi.encode(amountToEvacuate, manipulationPools, evacuationPools, manipulationMinReturn, evacuationMinReturn, simpleSwapMinReturn);
             AAVE_POOL.flashLoanSimple(
                 address(this),
                 address(SAFE_ASSET),
@@ -335,7 +337,7 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
         }
 
         // 2. Декодируем параметры, которые мы передали в flashLoanSimple
-        (uint256 amountToEvacuate, address[] memory manipulationPools, address[] memory evacuationPools, uint256 manipulationMinReturn, uint256 evacuationMinReturn) = abi.decode(params, (uint256, address[], address[], uint256, uint256));
+        (uint256 amountToEvacuate, address[] memory manipulationPools, address[] memory evacuationPools, uint256 manipulationMinReturn, uint256 evacuationMinReturn, uint256 simpleSwapMinReturn) = abi.decode(params, (uint256, address[], address[], uint256, uint256, uint256));
 
         // 3. Манипуляция: Продаем заемные SAFE_ASSET, чтобы купить PROTECTED_ASSET и поднять его цену.
         // Даем разрешение 1inch потратить заемные SAFE_ASSET.
@@ -364,17 +366,24 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
         // явная проверка в нашем коде добавляет дополнительный уровень безопасности.
         if (evacuatedAmount < evacuationMinReturn) revert SwapFailed();
 
-        // 5. Рассчитываем сумму SAFE_ASSET к возврату (кредит + комиссия)
+        // 5. Проверка прибыльности: убеждаемся, что сложная стратегия принесла больше, чем принес бы простой обмен.
+        // Если это не так, вся операция была бессмысленной.
+        if (evacuatedAmount <= simpleSwapMinReturn) {
+            revert SwapFailed(); // Стратегия не была прибыльной
+        }
+
+        // 6. Рассчитываем общую сумму к возврату (кредит + комиссия Aave)
         uint256 amountToRepay = amount + premium;
 
-        // 6. Проверяем, что после основного обмена у нас достаточно SAFE_ASSET для погашения.
-        if (IERC20(asset).balanceOf(address(this)) < amountToRepay) {
+        // 7. Главная проверка безопасности: убеждаемся, что сумма, полученная от эвакуации,
+        // достаточна для полного погашения флеш-кредита с комиссией.
+        if (evacuatedAmount < amountToRepay) {
             revert SwapFailed();
         }
 
         emit AssetsEvacuated(amountToEvacuate, evacuatedAmount);
 
-        // 7. Даем разрешение Aave забрать долг с комиссией.
+        // 8. Даем разрешение Aave забрать долг с комиссией.
         return IERC20(asset).approve(address(AAVE_POOL), amountToRepay);
     }
 
