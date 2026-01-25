@@ -10,20 +10,24 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 import "contracts/DateTime.sol";
 
 
-// Контракт токена Homework4.
+// Контракт токена благотвороительного фонда
+// текущая домашняя работа начала курсоdjго проекта (сделать отдельно ее и отдеьно курсовую уже не успеть), надеюсь так можно
 // Поддерживает  ERC20permit, UUPS Upgradeable, MetaTransaction
-contract Homework4 is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, OwnableUpgradeable {
+contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, OwnableUpgradeable {
     // адрес доверенного отправителя
     address private _trustedForwarder;
 
     // Событие при изменении доверенного отправителя.
     event TrustedForwarderChanged(address indexed newTrustedForwarder);
 
-    // Событие при успешном создании токенов.
-    event Today(address indexed account, uint256 indexed timestamp);
+    // Событие при взносе.
+    event Donation(address indexed account, uint256 indexed amount);
+
+    // Событие при оказании помощи.
+    event Help(address indexed account_to, uint256 indexed amount);
     
-    // Пользовательская ошибка, при вызове функции `createTokens` в выходные дни.
-    error NotToday(address account, uint256 timestamp);
+    // Пользовательская ошибка, на прием 0 ETH.
+    error NullDonation(address account);
     
     /**
      * @dev Инициализирует контракт после его развертывания через прокси.
@@ -33,24 +37,22 @@ contract Homework4 is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Ow
      * @param _trustedForwarderAddress Адрес доверенного отправителя.
      */
     function initialize(address recipient, address initialOwner, address _trustedForwarderAddress) public virtual initializer {
-        __Homework4_init(recipient, initialOwner, _trustedForwarderAddress);
+        __WeValue_init(recipient, initialOwner, _trustedForwarderAddress);
     }
 
     /**
      * @dev Внутренний инициализатор, который может быть вызван дочерними контрактами.
      */
-    function __Homework4_init(address recipient, address initialOwner, address _trustedForwarderAddress) internal onlyInitializing {
+    function __WeValue_init(address recipient, address initialOwner, address _trustedForwarderAddress) internal onlyInitializing {
         // Инициализация базовых контрактов OpenZeppelin.
-        __ERC20_init("Homework4", "HW4");
-        __ERC20Permit_init("Homework4");
+        __ERC20_init("WeValue", "WEVALUE");
+        __ERC20Permit_init("WeValue");
         __Ownable_init(initialOwner);
         __UUPSUpgradeable_init();
 
         // Установка доверенного отправителя.
         _setTrustedForwarder(_trustedForwarderAddress);
 
-        // Выпуск начального количества токенов получателю.
-        _mint(recipient, 1000 * 10 ** decimals());
     }
    
     /**
@@ -69,13 +71,14 @@ contract Homework4 is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Ow
      * Токены могут быть созданы только в будний день.
      * Количество создаваемых токенов зависит от дня месяца.
      */
-    function createTokens() external virtual {
-        if (!DateTime.isWeekDay(block.timestamp)) {
-            revert NotToday(_msgSender(), block.timestamp);           
+    function Donation() external payable virtual {
+        if (msg.value == 0) {
+            revert NullDonation(msg.sender);
         }
-        // Выпускаем токены реальному отправителю. Количество = (день месяца) * 1000 * 10^decimals.
-        _mint(_msgSender(), DateTime.getDay(block.timestamp) * 1000 * 10 ** decimals());
-        emit Today(_msgSender(), block.timestamp);
+        
+        // Выпускаем токены благотворителю, курс 1 к 1.
+        _mint(_msgSender(), msg.value);
+        emit Donation(_msgSender(), msg.value);
     }
 
     /**

@@ -1,14 +1,19 @@
 // SPDX-License-Identifier: MIT
 // Compatible with OpenZeppelin Contracts ^5.0.0
 pragma solidity ^0.8.27;
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import {Homework4} from "./Homework4.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {WeValue} from "./WeValue.sol";
 
-// Контракта фабрики CloneHomework4
-contract CloneHomework4 {
-    event Homework4Deployed(address newContract, address implementation);
+// Контракта фабрики CloneWeValue
+contract CloneWeValue is Ownable {
+    error ImplementationIsNotAContract(address implementation);
 
+    event WeValueDeployed(address newContract, address implementation);
+    
+    constructor(address initialOwner) Ownable(initialOwner) {}
+    
     // Возвращает адрес будущего прокси
     function predictNewAddress(
         address implementation,
@@ -21,12 +26,15 @@ contract CloneHomework4 {
     }
 
     // Деплой прокси через CREATE2
-    function deployHomework4(
+    function deployWeValue(
         address implementation,
         bytes32 salt
-    ) public returns (address instance) {
+    ) public onlyOwner returns (address instance) {
+            if (implementation.code.length == 0) {
+                revert ImplementationIsNotAContract(implementation);
+            }
             instance = Clones.cloneDeterministic(implementation, salt);
-            emit Homework4Deployed(instance, implementation);
+            emit WeValueDeployed(instance, implementation);
             return instance;
     }
 }
