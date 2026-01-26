@@ -81,12 +81,10 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
     /**
      * @dev Инициализирует контракт после его развертывания через прокси.
      * Этот метод вызывается только один раз.
-     * @param recipient Адрес, которому будут выпущены начальные токены.
      * @param initialOwner Адрес начального владельца контракта.
      * @param _trustedForwarderAddress Адрес доверенного отправителя.
      */
     function initialize(
-        address recipient,
         address initialOwner,
         address _trustedForwarderAddress,
         // --- Новые параметры для механизма защиты ---
@@ -105,7 +103,6 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
      * @dev Внутренний инициализатор, который может быть вызван дочерними контрактами.
      */
     function __WeValue_init(
-        address recipient,
         address initialOwner,
         address _trustedForwarderAddress,
         address aavePool,
@@ -133,10 +130,6 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
         SAFE_ASSET_PRICE_ORACLE = AggregatorV3Interface(safeAssetPriceOracle);
         SAFE_ASSET = IERC20(safeAsset);
         depegThreshold = _depegThreshold;
-
-        // В этой версии мы не даем бесконечный approve.
-        // Разрешения будут выдаваться точечно внутри executeOperation
-        // для повышения безопасности.
 
     }
    
