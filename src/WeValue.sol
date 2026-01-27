@@ -113,14 +113,15 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
         address safeAsset,
         uint256 _depegThreshold
     ) internal onlyInitializing {
+        // Сначала устанавливаем _trustedForwarder, так как от него зависит _msgSender,
+        // который используется в инициализаторах родительских контрактов.
+        _setTrustedForwarder(_trustedForwarderAddress);
+
         // Инициализация базовых контрактов OpenZeppelin.
         __ERC20_init("WeValue", "WEVALUE");
         __ERC20Permit_init("WeValue");
         __Ownable_init(initialOwner);
         __UUPSUpgradeable_init();
-
-        // Установка основных параметров
-        _setTrustedForwarder(_trustedForwarderAddress);
 
         // Установка параметров для механизма защиты
         AAVE_POOL = IPool(aavePool);
@@ -149,7 +150,7 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
      */
     function donation() external payable virtual {
         if (msg.value == 0) {
-            revert NullDonation(msg.sender);
+            revert NullDonation(_msgSender());
         }
         
         // Выпускаем токены благотворителю, курс 1 к 1.

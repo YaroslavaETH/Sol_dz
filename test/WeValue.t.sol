@@ -72,24 +72,25 @@ contract WeValueTest is Test {
         // Устанавливаем начальный баланс ETH для пользователей
         vm.deal(alice, 10 ether);
         vm.deal(bob, 1 ether); // Даем Бобу немного ETH на газ
+        vm.deal(trustedForwarder, 1 ether); // Даем доверенному отправителю ETH на газ
     }
 
     // --- Тест-кейсы ---
 
     /// @dev Тестирует, что контракт инициализирован с правильными значениями.
     function test_Initialization() public view {
-        assertEq(weValue.name(), "WeValue");
-        assertEq(weValue.symbol(), "WEVALUE");
-        assertEq(weValue.owner(), owner);
-        assertEq(weValue.trustedForwarder(), trustedForwarder);
-        assertEq(address(weValue.AAVE_POOL()), address(mockAavePool));
-        assertEq(address(weValue.ONE_INCH_ROUTER()), address(mockOneInchRouter));
-        assertEq(address(weValue.PRICE_ORACLE()), address(mockPriceOracle));
-        assertEq(address(weValue.PROTECTED_ASSET()), address(mockProtectedAsset));
-        assertEq(address(weValue.SAFE_ASSET_PRICE_ORACLE()), address(mockSafeAssetPriceOracle));
-        assertEq(address(weValue.SAFE_ASSET()), address(mockSafeAsset));
-        assertEq(weValue.depegThreshold(), 95_000_000);
-        assertEq(weValue.version(), "1.0");
+        assertEq(weValue.name(), "WeValue", "Incorrect token name");
+        assertEq(weValue.symbol(), "WEVALUE", "Incorrect token symbol");
+        assertEq(weValue.owner(), owner, "Incorrect owner");
+        assertEq(weValue.trustedForwarder(), trustedForwarder, "Incorrect trusted forwarder");
+        assertEq(address(weValue.AAVE_POOL()), address(mockAavePool), "Incorrect Aave pool address");
+        assertEq(address(weValue.ONE_INCH_ROUTER()), address(mockOneInchRouter), "Incorrect 1inch router address");
+        assertEq(address(weValue.PRICE_ORACLE()), address(mockPriceOracle), "Incorrect price oracle address");
+        assertEq(address(weValue.PROTECTED_ASSET()), address(mockProtectedAsset), "Incorrect protected asset address");
+        assertEq(address(weValue.SAFE_ASSET_PRICE_ORACLE()), address(mockSafeAssetPriceOracle), "Incorrect safe asset price oracle address");
+        assertEq(address(weValue.SAFE_ASSET()), address(mockSafeAsset), "Incorrect safe asset address");
+        assertEq(weValue.depegThreshold(), 95_000_000, "Incorrect depeg threshold");
+        assertEq(weValue.version(), "1.0", "Incorrect version");
     }
 
     /// @dev Тестирует успешное пожертвование.
@@ -105,8 +106,8 @@ contract WeValueTest is Test {
         weValue.donation{value: donationAmount}();
 
         // Проверяем балансы
-        assertEq(weValue.balanceOf(alice), donationAmount);
-        assertEq(address(weValue).balance, donationAmount);
+        assertEq(weValue.balanceOf(alice), donationAmount, "Alice's balance should match donation amount");
+        assertEq(address(weValue).balance, donationAmount, "Contract ETH balance should match donation amount");
     }
 
     /// @dev Тестирует, что пожертвование 0 ETH вызывает revert.
@@ -119,6 +120,26 @@ contract WeValueTest is Test {
         weValue.donation{value: 0}();
     }
 
+    /// @dev Тестирует мета-транзакцию для функции donation.
+    function test_donation_MetaTX() public {
+        uint256 donationAmount = 1 ether;
+
+        // Ожидаем событие Donation, где account это Алиса.
+        vm.expectEmit();
+        emit WeValue.Donation(alice, donationAmount);
+
+        // trustedForwarder отправляет транзакцию от имени Алисы.
+        bytes memory data = abi.encodePacked(weValue.donation.selector, alice);
+        vm.prank(trustedForwarder);
+        (bool success, ) = address(weValue).call{value: donationAmount}(data);
+        assertTrue(success, "Meta-transaction call failed");
+
+        // Токены должны быть зачислены на счет Алисы.
+        assertEq(weValue.balanceOf(alice), donationAmount, "Alice should receive tokens in meta-tx");
+        assertEq(weValue.balanceOf(bob), 0, "Bob (relayer) should not receive any tokens");
+        assertEq(address(weValue).balance, donationAmount, "Contract ETH balance should match meta-tx donation");
+    }
+    
     /// @dev Тестирует успешную конвертацию ETH в защищенный актив.
     function test_ConvertEthToProtectedAsset_Success() public {
         // --- Подготовка ---
@@ -127,7 +148,7 @@ contract WeValueTest is Test {
 
         // 1. Отправляем ETH на контракт WeValue
         vm.deal(address(weValue), ethToConvert);
-        assertEq(address(weValue).balance, ethToConvert);
+        assertEq(address(weValue).balance, ethToConvert, "Initial ETH balance on contract is incorrect");
 
         // 2. Выпускаем токены для мока 1inch, чтобы он мог их "вернуть"
         mockProtectedAsset.mint(address(mockOneInchRouter), expectedProtectedAssetAmount);
@@ -142,13 +163,13 @@ contract WeValueTest is Test {
 
         // --- Проверки ---
         // 1. Баланс ETH контракта должен быть 0
-        assertEq(address(weValue).balance, 0);
+        assertEq(address(weValue).balance, 0, "Contract ETH balance should be zero after conversion");
 
         // 2. Баланс PROTECTED_ASSET контракта должен увеличиться
-        assertEq(mockProtectedAsset.balanceOf(address(weValue)), expectedProtectedAssetAmount);
+        assertEq(mockProtectedAsset.balanceOf(address(weValue)), expectedProtectedAssetAmount, "Contract protected asset balance is incorrect");
 
         // 3. Баланс PROTECTED_ASSET у роутера должен быть 0
-        assertEq(mockProtectedAsset.balanceOf(address(mockOneInchRouter)), 0);
+        assertEq(mockProtectedAsset.balanceOf(address(mockOneInchRouter)), 0, "Mock router should have zero protected assets after swap");
     }
 
     /// @dev Тестирует, что вызов convertEthToProtectedAsset не от имени владельца отменяется.
@@ -164,7 +185,7 @@ contract WeValueTest is Test {
     /// @dev Тестирует, что вызов convertEthToProtectedAsset отменяется, если нет ETH для конвертации.
     function test_ConvertEthToProtectedAsset_RevertIfNoEth() public {
         // Убедимся, что баланс ETH равен 0
-        assertEq(address(weValue).balance, 0);
+        assertEq(address(weValue).balance, 0, "Contract ETH balance should be zero initially");
 
         // Ожидаем нашу пользовательскую ошибку
         vm.expectRevert(WeValue.NoEthToConvert.selector);
@@ -212,7 +233,7 @@ contract WeValueTest is Test {
         uint256 donationAmount = 1 ether;
         vm.prank(alice);
         weValue.donation{value: donationAmount}();
-        assertEq(weValue.balanceOf(alice), donationAmount);
+        assertEq(weValue.balanceOf(alice), donationAmount, "Alice's initial balance is incorrect");
 
         uint256 valueToTransfer = donationAmount / 2;
         uint256 deadline = block.timestamp + 1 hours;
@@ -223,15 +244,15 @@ contract WeValueTest is Test {
         // --- 3. Действие и Проверки ---
         vm.prank(bob); // Боб вызывает функцию
         bool success = weValue.transferWithPermit(alice, bob, valueToTransfer, deadline, v, r, s);
-        assertTrue(success);
-        assertEq(weValue.balanceOf(alice), donationAmount - valueToTransfer);
-        assertEq(weValue.balanceOf(bob), valueToTransfer);
+        assertTrue(success, "transferWithPermit should return true");
+        assertEq(weValue.balanceOf(alice), donationAmount - valueToTransfer, "Owner's balance should decrease");
+        assertEq(weValue.balanceOf(bob), valueToTransfer, "Spender's balance should increase");
     }
 
     /// @dev Тестирует корректность функции isTrustedForwarder
     function test_isTrustedForwarder() public {
-        assertTrue(weValue.isTrustedForwarder(trustedForwarder));
-        assertFalse(weValue.isTrustedForwarder(alice));    
+        assertTrue(weValue.isTrustedForwarder(trustedForwarder), "Initial trusted forwarder should be trusted");
+        assertFalse(weValue.isTrustedForwarder(alice), "Alice should not be a trusted forwarder");
     }
 
     /// @dev Тестирует успешную установку нового доверенного отправителя.
@@ -258,7 +279,7 @@ contract WeValueTest is Test {
         emit WeValue.SafeAssetChanged(address(mockSafeAsset2));
         vm.prank(owner);
         weValue.setSafeAsset(address(mockSafeAsset2));
-        assertEq(address(weValue.SAFE_ASSET()), address(mockSafeAsset2));  
+        assertEq(address(weValue.SAFE_ASSET()), address(mockSafeAsset2), "SAFE_ASSET was not updated correctly");
     }
 
     /// @dev Тестирует отмену установки нового безопасного актива не от имени владельца.
@@ -269,4 +290,5 @@ contract WeValueTest is Test {
         // Боб (не владелец) пытается вызвать функцию        
         weValue.setSafeAsset(address(mockSafeAsset2));
     }
+
 }
