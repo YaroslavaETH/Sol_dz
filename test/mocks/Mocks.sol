@@ -6,12 +6,27 @@ import {AggregatorV3Interface} from "src/interfaces/AggregatorV3Interface.sol";
 import {IOneInchRouter} from "src/interfaces/IOneInchRouter.sol";
 import {IPool} from "src/interfaces/IPool.sol";
 
+/// @dev Минимальный интерфейс для WeValue, необходимый мокам для разрыва циклических зависимостей.
+interface IWeValue {
+    function executeOperation(
+        address asset,
+        uint256 amount,
+        uint256 premium,
+        address initiator,
+        bytes calldata params
+    ) external returns (bool);
+}
+
 // --- Мок токена ERC20 ---
 contract MockERC20 is ERC20 {
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
 
     function mint(address to, uint256 amount) public {
         _mint(to, amount);
+    }
+
+    function burn(address from, uint256 amount) public {
+        _burn(from, amount);
     }
 }
 
@@ -39,44 +54,91 @@ contract MockAggregatorV3 is AggregatorV3Interface {
 }
 
 // --- Мок роутера 1inch ---
-// Пока что достаточно простого контракта с адресом. Логику добавим позже.
 contract MockOneInchRouter is IOneInchRouter {
-    address public immutable WETH;
+    address public constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     address public immutable PROTECTED_ASSET;
+    address public immutable SAFE_ASSET;
 
-    constructor(address _weth, address _protectedAsset) {
-        WETH = _weth;
+    mapping(address => mapping(address => uint256)) public expectedSwapReturns;
+
+    constructor(address _protectedAsset, address _safeAsset) {
         PROTECTED_ASSET = _protectedAsset;
+        SAFE_ASSET = _safeAsset;
+    }
+
+    function setExpectedSwapReturn(address fromToken, address toToken, uint256 returnAmount) public {
+        expectedSwapReturns[fromToken][toToken] = returnAmount;
     }
 
     function swap(
         address fromToken,
         uint256 amount,
         uint256 minReturn,
-        address[] calldata // pools (пулы)
+        address[] calldata /* pools */
     ) external payable override returns (uint256 returnAmount) {
-        // Этот мок имитирует обмен ETH на PROTECTED_ASSET.
-        // Он не использует реальную логику курсов, а просто пересылает токены.
-        address toToken = PROTECTED_ASSET; // В нашем сценарии мы всегда меняем на PROTECTED_ASSET
-        require(fromToken == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE, "Mock: Only ETH swaps supported");
-        require(msg.value == amount, "Mock: msg.value mismatch");
+        address toToken;
+        if (fromToken == ETH_ADDRESS) {
+            toToken = PROTECTED_ASSET;
+        } else if (fromToken == PROTECTED_ASSET) {
+            toToken = SAFE_ASSET;
+        } else if (fromToken == SAFE_ASSET) {
+            toToken = PROTECTED_ASSET;
+        } else {
+            revert("MockOneInchRouter: Unsupported swap pair");
+        }
 
-        uint256 amountToReturn = minReturn; // Для простоты возвращаем minReturn
-        MockERC20(toToken).transfer(msg.sender, amountToReturn);
-        return amountToReturn;
+        uint256 expected = expectedSwapReturns[fromToken][toToken];
+        if (expected == 0) expected = minReturn; // Поведение по умолчанию, если не задано
+
+        // Имитируем `transferFrom` для обменов токенов
+        if (fromToken != ETH_ADDRESS) {
+            // В реальном моке мы бы проверили allowance и сожгли токены у msg.sender.
+            // Для простоты мы просто выпускаем возвращаемую сумму.
+        }
+        
+        // Выпускаем возвращаемую сумму на адрес вызывающего (контракт WeValue)
+        MockERC20(toToken).mint(msg.sender, expected);
+        // Сжигаем сумму к обмену на адресе вызывающего (контракт WeValue)
+        if (fromToken != ETH_ADDRESS) { // Только для ERC20 токенов
+            MockERC20(fromToken).burn(msg.sender, amount);
+        }
+        return expected;
     }
 }
 
 // --- Мок пула Aave ---
-// Пока что достаточно простого контракта с адресом. Логику добавим позже.
 contract MockAavePool is IPool { // forgefmt: disable-line
+    IWeValue public weValueContract;
+    MockERC20 public safeAssetMock;
+    uint256 public premium;
+
+    function setWeValueContract(address _weValue) public {
+        weValueContract = IWeValue(_weValue);
+    }
+
+    function setSafeAssetMock(MockERC20 _safeAssetMock) public {
+        safeAssetMock = _safeAssetMock;
+    }
+
+    function setPremium(uint256 _premium) public {
+        premium = _premium;
+    }
+
     function flashLoanSimple(
-        address, // receiverAddress
-        address, // asset
-        uint256, // amount
-        bytes calldata, // params
-        uint16 // referralCode
+        address receiverAddress,
+        address asset,
+        uint256 amount,
+        bytes calldata params,
+        uint16 /* referralCode */
     ) external override {
-        // Эта функция намеренно оставлена пустой.
+        // Имитируем флеш-кредит: выпускаем токены на адрес получателя (WeValue)
+        safeAssetMock.mint(receiverAddress, amount);
+
+        // Вызываем executeOperation на контракте WeValue
+        weValueContract.executeOperation(asset, amount, premium, receiverAddress, params); 
+
+        // Имитируем погашение: сжигаем токены у получателя (WeValue)
+        // Контракт WeValue должен был дать approve на `amount + premium`.
+        safeAssetMock.burn(receiverAddress, amount+premium);
     }
 }

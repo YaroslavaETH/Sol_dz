@@ -385,7 +385,7 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
         if (evacuatedAmount < amountToRepay) {
             revert SwapFailed();
         }
-
+        
         emit AssetsEvacuated(amountToEvacuate, evacuatedAmount);
 
         // 8. Даем разрешение Aave забрать долг с комиссией.
