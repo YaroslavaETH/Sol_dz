@@ -4,7 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": ""
+    "build": "forge build",
+    "test": "forge test",
+    "test:watch": "forge test --watch",
+    "coverage": "forge coverage",
+    "gas-report": "forge test --gas-report"
   },
   "author": "",
   "license": "MIT",
@@ -24,7 +28,6 @@
   "homepage": "https://github.com/YaroslavaETH/Sol_dz#readme",
   "dependencies": {
     "@aave/core-v3": "^1.19.3",
-    "@chainlink/contracts": "^1.5.0",
-    "@opengsn/contracts": "^3.0.0-beta.6"
+    "@chainlink/contracts": "^1.5.0"
   }
 }

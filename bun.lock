@@ -7,7 +7,6 @@
       "dependencies": {
         "@aave/core-v3": "^1.19.3",
         "@chainlink/contracts": "^1.5.0",
-        "@opengsn/contracts": "^3.0.0-beta.6",
       },
       "devDependencies": {
         "@openzeppelin/contracts": "^5.3.0",
@@ -139,8 +138,6 @@
     "@nodelib/fs.walk": ["@nodelib/fs.walk@1.2.8", "", { "dependencies": { "@nodelib/fs.scandir": "2.1.5", "fastq": "^1.6.0" } }, "sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg=="],
 
     "@offchainlabs/upgrade-executor": ["@offchainlabs/upgrade-executor@1.1.0-beta.0", "", { "dependencies": { "@openzeppelin/contracts": "4.7.3", "@openzeppelin/contracts-upgradeable": "4.7.3" } }, "sha512-mpn6PHjH/KDDjNX0pXHEKdyv8m6DVGQiI2nGzQn0JbM1nOSHJpWx6fvfjtH7YxHJ6zBZTcsKkqGkFKDtCfoSLw=="],
-
-    "@opengsn/contracts": ["@opengsn/contracts@3.0.0-beta.6", "", { "dependencies": { "@openzeppelin/contracts": "^4.2.0" } }, "sha512-zqd7BG339Uq5bfx40CwKXr2waaJqLN9qBVllcWhKBGnkZPKR59wVIPh2zTNzvLorndMRWB3TnOQxAr6tZKjwGQ=="],
 
     "@openzeppelin/contracts": ["@openzeppelin/contracts@5.4.0", "", {}, "sha512-eCYgWnLg6WO+X52I16TZt8uEjbtdkgLC0SUX/xnAksjjrQI4Xfn4iBRoI5j55dmlOhDv1Y7BoR3cU7e3WWhC6A=="],
 
@@ -475,8 +472,6 @@
     "@offchainlabs/upgrade-executor/@openzeppelin/contracts": ["@openzeppelin/contracts@4.7.3", "", {}, "sha512-dGRS0agJzu8ybo44pCIf3xBaPQN/65AIXNgK8+4gzKd5kbvlqyxryUYVLJv7fK98Seyd2hDZzVEHSWAh0Bt1Yw=="],
 
     "@offchainlabs/upgrade-executor/@openzeppelin/contracts-upgradeable": ["@openzeppelin/contracts-upgradeable@4.7.3", "", {}, "sha512-+wuegAMaLcZnLCJIvrVUDzA9z/Wp93f0Dla/4jJvIhijRrPabjQbZe6fWiECLaJyfn5ci9fqf9vTw3xpQOad2A=="],
-
-    "@opengsn/contracts/@openzeppelin/contracts": ["@openzeppelin/contracts@4.9.6", "", {}, "sha512-xSmezSupL+y9VkHZJGDoCBpmnB2ogM13ccaYDWqJTfS3dbuHkgjuwDFUmaFauBCboQMGB/S5UqUl2y54X99BmA=="],
 
     "cross-spawn/semver": ["semver@5.7.2", "", { "bin": { "semver": "bin/semver" } }, "sha512-cBznnQ9KjJqU67B52RMC65CMarK2600WFnbkcaiwWq3xy/5haFJlshgnpjovMVJ+Hff49d8GEn0b87C5pDQ10g=="],
 
