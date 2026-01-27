@@ -343,9 +343,9 @@ contract WeValueTest is Test {
         uint256 simpleSwapMinReturn = 1300 * 1e18; // 1300 DAI if no manipulation
 
         // Настраиваем мок 1inch router для обменов
-        // Манипуляция: SAFE_ASSET -> PROTECTED_ASSET 
+        // Манипуляция: SAFE_ASSET - PROTECTED_ASSET 
         mockOneInchRouter.setExpectedSwapReturn(address(mockSafeAsset), address(mockProtectedAsset), manipulationMinReturn);
-        // Эвакуация: PROTECTED_ASSET -> SAFE_ASSET
+        // Эвакуация: PROTECTED_ASSET - SAFE_ASSET
         mockOneInchRouter.setExpectedSwapReturn(address(mockProtectedAsset), address(mockSafeAsset), evacuationMinReturn);
 
         // Ожидаем события
@@ -389,6 +389,41 @@ contract WeValueTest is Test {
 
         weValue.evacuateIfDepegged(new address[](0), new address[](0), flashLoanAmount, manipulationMinReturn, evacuationMinReturn, simpleSwapMinReturn);
 
+        assertEq(mockProtectedAsset.balanceOf(address(weValue)), initialProtectedAssetBalance, "Protected asset balance should be unchanged");
+        assertEq(mockSafeAsset.balanceOf(address(weValue)), 0, "Safe asset balance should be 0");
+        assertEq(address(weValue.PROTECTED_ASSET()), address(mockProtectedAsset), "PROTECTED_ASSET should not be rotated");
+        assertEq(address(weValue.PRICE_ORACLE()), address(mockPriceOracle), "PRICE_ORACLE should not be rotated");
+    }
+
+    /// @dev Тестирует отмену эвакуации, если манипуляция ценой оказалась невыгодной.
+    function test_EvacuateIfDepegged_RevertIfManipulationUnprofitable() public {
+        // Устанавливаем цену ниже порога отвязки
+        mockPriceOracle.setLatestAnswer(90_000_000); // $0.90 (8 decimals)
+
+        // Контракт WeValue имеет PROTECTED_ASSET
+        uint256 initialProtectedAssetBalance = 1000 * 1e6; // 1000 USDC (6 decimals)
+        mockProtectedAsset.mint(address(weValue), initialProtectedAssetBalance);
+        assertEq(mockProtectedAsset.balanceOf(address(weValue)), initialProtectedAssetBalance, "Initial protected asset balance is incorrect");
+
+        // Параметры для флеш-кредита и обмена
+        uint256 flashLoanAmount = 500 * 1e18; // 500 DAI (18 decimals)
+        uint256 manipulationMinReturn = 490 * 1e6; // 490 USDC from 500 DAI
+        // Устанавливаем evacuationMinReturn так, чтобы она была <= simpleSwapMinReturn
+        uint256 evacuationMinReturn = 1200 * 1e18; // 1200 DAI from (1000+490) USDC
+        uint256 simpleSwapMinReturn = 1300 * 1e18; // 1300 DAI if no manipulation
+
+        // Настраиваем мок 1inch router для обменов
+        // Манипуляция: SAFE_ASSET  -PROTECTED_ASSET
+        mockOneInchRouter.setExpectedSwapReturn(address(mockSafeAsset), address(mockProtectedAsset), manipulationMinReturn);
+        // Эвакуация: PROTECTED_ASSET - SAFE_ASSET 
+        mockOneInchRouter.setExpectedSwapReturn(address(mockProtectedAsset), address(mockSafeAsset), evacuationMinReturn);
+
+        // Ожидаем ошибку SwapFailed, так как стратегия не была прибыльной
+        vm.expectRevert(WeValue.SwapFailed.selector);
+
+        weValue.evacuateIfDepegged(new address[](0), new address[](0), flashLoanAmount, manipulationMinReturn, evacuationMinReturn, simpleSwapMinReturn);
+
+        // Проверки (убеждаемся, что ничего не изменилось, так как транзакция откатилась)
         assertEq(mockProtectedAsset.balanceOf(address(weValue)), initialProtectedAssetBalance, "Protected asset balance should be unchanged");
         assertEq(mockSafeAsset.balanceOf(address(weValue)), 0, "Safe asset balance should be 0");
         assertEq(address(weValue.PROTECTED_ASSET()), address(mockProtectedAsset), "PROTECTED_ASSET should not be rotated");
