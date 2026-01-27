@@ -96,7 +96,7 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
         address safeAsset,
         uint256 _depegThreshold
     ) public virtual initializer {
-        __WeValue_init(recipient, initialOwner, _trustedForwarderAddress, aavePool, oneInchRouter, priceOracle, protectedAsset, safeAssetPriceOracle, safeAsset, _depegThreshold);
+        __WeValue_init(initialOwner, _trustedForwarderAddress, aavePool, oneInchRouter, priceOracle, protectedAsset, safeAssetPriceOracle, safeAsset, _depegThreshold);
     }
 
     /**
