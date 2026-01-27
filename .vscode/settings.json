@@ -1,4 +1,7 @@
 {
     "slither.solcPath": "",
-    "slither.hiddenDetectors": []
+    "slither.hiddenDetectors": [],
+    "solidity.remappings": [
+        "forge-std/=lib/forge-std/src/"
+    ]
 }

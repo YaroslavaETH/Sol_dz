@@ -13,6 +13,7 @@ remappings = [
     "@scroll-tech/=node_modules/@scroll-tech/",
     "@zksync/=node_modules/@zksync/",
     "solady/=node_modules/solady/",
+    "forge-std/=lib/forge-std/src/",
 ]
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
