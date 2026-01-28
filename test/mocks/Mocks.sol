@@ -72,30 +72,15 @@ contract MockOneInchRouter is IOneInchRouter {
 
     function swap(
         address fromToken,
+        address toToken,
         uint256 amount,
         uint256 minReturn,
         address[] calldata /* pools */
     ) external payable override returns (uint256 returnAmount) {
-        address toToken;
-        if (fromToken == ETH_ADDRESS) {
-            toToken = PROTECTED_ASSET;
-        } else if (fromToken == PROTECTED_ASSET) {
-            toToken = SAFE_ASSET;
-        } else if (fromToken == SAFE_ASSET) {
-            toToken = PROTECTED_ASSET;
-        } else {
-            revert("MockOneInchRouter: Unsupported swap pair");
-        }
 
         uint256 expected = expectedSwapReturns[fromToken][toToken];
         if (expected == 0) expected = minReturn; // Поведение по умолчанию, если не задано
 
-        // Имитируем `transferFrom` для обменов токенов
-        if (fromToken != ETH_ADDRESS) {
-            // В реальном моке мы бы проверили allowance и сожгли токены у msg.sender.
-            // Для простоты мы просто выпускаем возвращаемую сумму.
-        }
-        
         // Выпускаем возвращаемую сумму на адрес вызывающего (контракт WeValue)
         MockERC20(toToken).mint(msg.sender, expected);
         // Сжигаем сумму к обмену на адресе вызывающего (контракт WeValue)

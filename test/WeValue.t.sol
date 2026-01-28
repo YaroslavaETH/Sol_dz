@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.27;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol"; 
+import {AggregatorV3Interface} from "../src/interfaces/AggregatorV3Interface.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Test, console} from "forge-std/Test.sol";
 import {WeValue} from "../src/WeValue.sol";
@@ -84,12 +86,12 @@ contract WeValueTest is Test {
         assertEq(weValue.symbol(), "WEVALUE", "Incorrect token symbol");
         assertEq(weValue.owner(), owner, "Incorrect owner");
         assertEq(weValue.trustedForwarder(), trustedForwarder, "Incorrect trusted forwarder");
-        assertEq(address(weValue.AAVE_POOL()), address(mockAavePool), "Incorrect Aave pool address");
-        assertEq(address(weValue.ONE_INCH_ROUTER()), address(mockOneInchRouter), "Incorrect 1inch router address");
-        assertEq(address(weValue.PRICE_ORACLE()), address(mockPriceOracle), "Incorrect price oracle address");
-        assertEq(address(weValue.PROTECTED_ASSET()), address(mockProtectedAsset), "Incorrect protected asset address");
-        assertEq(address(weValue.SAFE_ASSET_PRICE_ORACLE()), address(mockSafeAssetPriceOracle), "Incorrect safe asset price oracle address");
-        assertEq(address(weValue.SAFE_ASSET()), address(mockSafeAsset), "Incorrect safe asset address");
+        assertEq(address(weValue.aavePool()), address(mockAavePool), "Incorrect Aave pool address");
+        assertEq(address(weValue.oneInchRouter()), address(mockOneInchRouter), "Incorrect 1inch router address");
+        assertEq(address(weValue.priceOracle()), address(mockPriceOracle), "Incorrect price oracle address");
+        assertEq(address(weValue.protectedAsset()), address(mockProtectedAsset), "Incorrect protected asset address");
+        assertEq(address(weValue.safeAssetPriceOracle()), address(mockSafeAssetPriceOracle), "Incorrect safe asset price oracle address");
+        assertEq(address(weValue.safeAsset()), address(mockSafeAsset), "Incorrect safe asset address");
         assertEq(weValue.depegThreshold(), 95_000_000, "Incorrect depeg threshold");
         assertEq(weValue.version(), "1.0", "Incorrect version");
     }
@@ -157,9 +159,9 @@ contract WeValueTest is Test {
 
         // Баланс ETH контракта должен быть 0
         assertEq(address(weValue).balance, 0, "Contract ETH balance should be zero after conversion");
-        // Баланс PROTECTED_ASSET контракта должен увеличиться
+        // Баланс protectedAsset контракта должен увеличиться
         assertEq(mockProtectedAsset.balanceOf(address(weValue)), expectedProtectedAssetAmount, "Contract protected asset balance is incorrect");
-        // Баланс PROTECTED_ASSET у роутера должен быть 0
+        // Баланс protectedAsset у роутера должен быть 0
         assertEq(mockProtectedAsset.balanceOf(address(mockOneInchRouter)), 0, "Mock router should have zero protected assets after swap");
     }
 
@@ -192,13 +194,13 @@ contract WeValueTest is Test {
      * @return r Компонент r подписи.
      * @return s Компонент s подписи.
      */
-    function _createPermitSignature(
+    function _createPermitSignature (
         address tokenOwner,
         address spender,
         uint256 keyTokenOwner,
         uint256 value,
         uint256 deadline
-    ) internal returns (uint8 v, bytes32 r, bytes32 s) {
+    ) internal view returns (uint8 v, bytes32 r, bytes32 s) {
         bytes32 domainSeparator = weValue.DOMAIN_SEPARATOR();
         uint256 nonce = weValue.nonces(tokenOwner);
 
@@ -238,7 +240,7 @@ contract WeValueTest is Test {
     }
 
     /// @dev Тестирует корректность функции isTrustedForwarder
-    function test_isTrustedForwarder() public {
+    function test_isTrustedForwarder() view public {
         assertTrue(weValue.isTrustedForwarder(trustedForwarder), "Initial trusted forwarder should be trusted");
         assertFalse(weValue.isTrustedForwarder(alice), "Alice should not be a trusted forwarder");
     }
@@ -267,7 +269,7 @@ contract WeValueTest is Test {
         emit WeValue.SafeAssetChanged(address(mockSafeAsset2));
         vm.prank(owner);
         weValue.setSafeAsset(address(mockSafeAsset2));
-        assertEq(address(weValue.SAFE_ASSET()), address(mockSafeAsset2), "SAFE_ASSET was not updated correctly");
+        assertEq(address(weValue.safeAsset()), address(mockSafeAsset2), "safeAsset was not updated correctly");
     }
 
     /// @dev Тестирует отмену установки нового безопасного актива не от имени владельца.
@@ -296,10 +298,10 @@ contract WeValueTest is Test {
         // Устанавливаем цену ниже порога отвязки
         mockPriceOracle.setLatestAnswer(90_000_000); // $0.90 (8 decimals)
 
-        // Искусственно устанавливаем флаг _evacuating в true
-        // _evacuating находится в слоте 7 (см. WeValue.sol)
+        // Искусственно устанавливаем флаг evacuating в true
+        // evacuating находится в слоте 7 (см. WeValue.sol)
         bytes32 slot = bytes32(uint256(7));
-        vm.store(address(weValue), slot, bytes32(uint256(1))); // Устанавливаем _evacuating в true
+        vm.store(address(weValue), slot, bytes32(uint256(1))); // Устанавливаем evacuating в true
 
         // Ожидаем ошибку EvacuationInProgress
         vm.expectRevert(WeValue.EvacuationInProgress.selector);
@@ -308,11 +310,11 @@ contract WeValueTest is Test {
         weValue.evacuateIfDepegged(new address[](0), new address[](0), 0, 0, 0, 0);
     }
 
-    /// @dev Тестирует успешную смену защитного актива, если баланс PROTECTED_ASSET = 0.
+    /// @dev Тестирует успешную смену защитного актива, если баланс protectedAsset = 0.
     function test_EvacuateIfDepegged_SuccessWithoutFlashloan() public {
         // Устанавливаем цену ниже порога отвязки
         mockPriceOracle.setLatestAnswer(90_000_000); // $0.90 (8 decimals)
-        // Убеждаемся, что баланс PROTECTED_ASSET контракта равен 0
+        // Убеждаемся, что баланс protectedAsset контракта равен 0
         assertEq(mockProtectedAsset.balanceOf(address(weValue)), 0, "Protected asset balance should be 0 initially");
 
         // Ожидаем событие ProtectedAssetRotated
@@ -322,8 +324,8 @@ contract WeValueTest is Test {
         weValue.evacuateIfDepegged(new address[](0), new address[](0), 0, 0, 0, 0);
 
         // Проверяем, что активы ротированы
-        assertEq(address(weValue.PROTECTED_ASSET()), address(mockSafeAsset), "PROTECTED_ASSET should be rotated to SAFE_ASSET");
-        assertEq(address(weValue.PRICE_ORACLE()), address(mockSafeAssetPriceOracle), "PRICE_ORACLE should be rotated to SAFE_ASSET_PRICE_ORACLE");
+        assertEq(address(weValue.protectedAsset()), address(mockSafeAsset), "protectedAsset should be rotated to safeAsset");
+        assertEq(address(weValue.priceOracle()), address(mockSafeAssetPriceOracle), "priceOracle should be rotated to safeAssetPriceOracle");
     }
 
     /// @dev Тестирует успешную эвакуацию с флеш-кредитом и обменом.
@@ -331,7 +333,7 @@ contract WeValueTest is Test {
         // Устанавливаем цену ниже порога отвязки
         mockPriceOracle.setLatestAnswer(90_000_000); // $0.90 (8 decimals)
 
-        // Контракт WeValue имеет PROTECTED_ASSET
+        // Контракт WeValue имеет protectedAsset
         uint256 initialProtectedAssetBalance = 1000 * 1e6; // 1000 USDC (6 decimals)
         mockProtectedAsset.mint(address(weValue), initialProtectedAssetBalance);
         assertEq(mockProtectedAsset.balanceOf(address(weValue)), initialProtectedAssetBalance, "Initial protected asset balance is incorrect");
@@ -343,9 +345,9 @@ contract WeValueTest is Test {
         uint256 simpleSwapMinReturn = 1300 * 1e18; // 1300 DAI if no manipulation
 
         // Настраиваем мок 1inch router для обменов
-        // Манипуляция: SAFE_ASSET - PROTECTED_ASSET 
+        // Манипуляция: safeAsset - protectedAsset 
         mockOneInchRouter.setExpectedSwapReturn(address(mockSafeAsset), address(mockProtectedAsset), manipulationMinReturn);
-        // Эвакуация: PROTECTED_ASSET - SAFE_ASSET
+        // Эвакуация: protectedAsset - safeAsset
         mockOneInchRouter.setExpectedSwapReturn(address(mockProtectedAsset), address(mockSafeAsset), evacuationMinReturn);
 
         // Ожидаем события
@@ -358,8 +360,8 @@ contract WeValueTest is Test {
 
         assertEq(mockProtectedAsset.balanceOf(address(weValue)), 0, "Protected asset balance should be 0 after evacuation");
         assertEq(mockSafeAsset.balanceOf(address(weValue)), evacuationMinReturn-flashLoanAmount, "Safe asset balance should be evacuationMinReturn - flashLoanAmount");
-        assertEq(address(weValue.PROTECTED_ASSET()), address(mockSafeAsset), "PROTECTED_ASSET should be rotated to SAFE_ASSET");
-        assertEq(address(weValue.PRICE_ORACLE()), address(mockSafeAssetPriceOracle), "PRICE_ORACLE should be rotated to SAFE_ASSET_PRICE_ORACLE");
+        assertEq(address(weValue.protectedAsset()), address(mockSafeAsset), "protectedAsset should be rotated to safeAsset");
+        assertEq(address(weValue.priceOracle()), address(mockSafeAssetPriceOracle), "priceOracle should be rotated to safeAssetPriceOracle");
     }
 
     /// @dev Тестирует отмену эвакуации, если не хватает средств для погашения флеш-кредита и комиссии.
@@ -367,7 +369,7 @@ contract WeValueTest is Test {
         // Устанавливаем цену ниже порога отвязки
         mockPriceOracle.setLatestAnswer(90_000_000); // $0.90 (8 decimals)
 
-        // Контракт WeValue имеет PROTECTED_ASSET
+        // Контракт WeValue имеет protectedAsset
         uint256 initialProtectedAssetBalance = 1000 * 1e6; // 1000 USDC (6 decimals)
         mockProtectedAsset.mint(address(weValue), initialProtectedAssetBalance);
         assertEq(mockProtectedAsset.balanceOf(address(weValue)), initialProtectedAssetBalance, "Initial protected asset balance is incorrect");
@@ -391,8 +393,8 @@ contract WeValueTest is Test {
 
         assertEq(mockProtectedAsset.balanceOf(address(weValue)), initialProtectedAssetBalance, "Protected asset balance should be unchanged");
         assertEq(mockSafeAsset.balanceOf(address(weValue)), 0, "Safe asset balance should be 0");
-        assertEq(address(weValue.PROTECTED_ASSET()), address(mockProtectedAsset), "PROTECTED_ASSET should not be rotated");
-        assertEq(address(weValue.PRICE_ORACLE()), address(mockPriceOracle), "PRICE_ORACLE should not be rotated");
+        assertEq(address(weValue.protectedAsset()), address(mockProtectedAsset), "protectedAsset should not be rotated");
+        assertEq(address(weValue.priceOracle()), address(mockPriceOracle), "priceOracle should not be rotated");
     }
 
     /// @dev Тестирует отмену эвакуации, если манипуляция ценой оказалась невыгодной.
@@ -400,7 +402,7 @@ contract WeValueTest is Test {
         // Устанавливаем цену ниже порога отвязки
         mockPriceOracle.setLatestAnswer(90_000_000); // $0.90 (8 decimals)
 
-        // Контракт WeValue имеет PROTECTED_ASSET
+        // Контракт WeValue имеет protectedAsset
         uint256 initialProtectedAssetBalance = 1000 * 1e6; // 1000 USDC (6 decimals)
         mockProtectedAsset.mint(address(weValue), initialProtectedAssetBalance);
         assertEq(mockProtectedAsset.balanceOf(address(weValue)), initialProtectedAssetBalance, "Initial protected asset balance is incorrect");
@@ -413,9 +415,9 @@ contract WeValueTest is Test {
         uint256 simpleSwapMinReturn = 1300 * 1e18; // 1300 DAI if no manipulation
 
         // Настраиваем мок 1inch router для обменов
-        // Манипуляция: SAFE_ASSET  -PROTECTED_ASSET
+        // Манипуляция: safeAsset  -protectedAsset
         mockOneInchRouter.setExpectedSwapReturn(address(mockSafeAsset), address(mockProtectedAsset), manipulationMinReturn);
-        // Эвакуация: PROTECTED_ASSET - SAFE_ASSET 
+        // Эвакуация: protectedAsset - safeAsset 
         mockOneInchRouter.setExpectedSwapReturn(address(mockProtectedAsset), address(mockSafeAsset), evacuationMinReturn);
 
         // Ожидаем ошибку SwapFailed, так как стратегия не была прибыльной
@@ -426,7 +428,98 @@ contract WeValueTest is Test {
         // Проверки (убеждаемся, что ничего не изменилось, так как транзакция откатилась)
         assertEq(mockProtectedAsset.balanceOf(address(weValue)), initialProtectedAssetBalance, "Protected asset balance should be unchanged");
         assertEq(mockSafeAsset.balanceOf(address(weValue)), 0, "Safe asset balance should be 0");
-        assertEq(address(weValue.PROTECTED_ASSET()), address(mockProtectedAsset), "PROTECTED_ASSET should not be rotated");
-        assertEq(address(weValue.PRICE_ORACLE()), address(mockPriceOracle), "PRICE_ORACLE should not be rotated");
+        assertEq(address(weValue.protectedAsset()), address(mockProtectedAsset), "protectedAsset should not be rotated");
+        assertEq(address(weValue.priceOracle()), address(mockPriceOracle), "priceOracle should not be rotated");
+    }
+
+    // ===================================================================================
+    // ============================== FORK TESTS =========================================
+    // ===================================================================================
+    // Запускать с --fork-url <your_mainnet_rpc_url>
+    // Пример: forge test --match-test test_EvacuateIfDepegged_Fork_Success -vv
+    // ===================================================================================
+
+    /// @dev Тестирует успешную эвакуацию в форке mainnet.
+    function test_EvacuateIfDepegged_Fork_Success() public {
+        // Проверяем, что тест запущен в режиме форка
+        uint256 forkBlock = block.number;
+        if (forkBlock == 0) {
+            // Пропускаем тест, если это не форк
+            return;
+        }
+
+        // Адреса контрактов в Mainnet
+        address aavePool = 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2; // Aave V3 Pool
+        address oneInchRouter = 0x1111111254EEB25477B68fb85Ed929f73A960582; // 1inch Aggregation Router v5
+        address usdc = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48; // USDC (Protected Asset)
+        address dai = 0x6B175474E89094C44Da98b954EedeAC495271d0F;  // DAI (Safe Asset)
+        address usdcUsdOracle = 0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6; // Chainlink USDC/USD
+        address daiUsdOracle = 0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9;  // Chainlink DAI/USD
+
+        // Развертывание реализации и прокси
+        WeValue forkImplementation = new WeValue();
+        
+        // Устанавливаем depegThreshold ВЫШЕ текущей цены, чтобы симулировать отвязку
+        // Цена USDC/USD имеет 8 знаков. 101_000_000 = $1.01
+        uint256 depegThreshold = 101_000_000; 
+
+        bytes memory initData = abi.encodeWithSelector(
+            WeValue.initialize.selector,
+            owner,
+            trustedForwarder,
+            aavePool,
+            oneInchRouter,
+            usdcUsdOracle,
+            usdc,
+            daiUsdOracle,
+            dai,
+            depegThreshold
+        );
+
+        ERC1967Proxy proxy = new ERC1967Proxy(address(forkImplementation), initData);
+        WeValue forkWeValue = WeValue(payable(address(proxy)));
+
+        // Не будет заводить на контракт токены, чтобы пройти по варианту Дадим контракту немного USDC для эвакуации
+        uint256 usdcAmountToEvacuate = 1000 * 1e6; // 1,000 USDC
+        // Используем чит-код deal для "печати" USDC на баланс нашего контракта
+        deal(usdc, address(forkWeValue), usdcAmountToEvacuate);
+        assertEq(IERC20(usdc).balanceOf(address(forkWeValue)), usdcAmountToEvacuate, "Initial USDC balance is incorrect");
+        console.log("Initial USDC balance to evacuate:", usdcAmountToEvacuate);
+
+        // --- Логирование для отладки ---
+        ( , int256 price, , , ) = AggregatorV3Interface(usdcUsdOracle).latestRoundData();
+        // casting to 'uint256' is safe because price is a non-negative value
+        // forge-lint: disable-next-line(unsafe-typecast)
+        console.log("Current USDC/USD Price (from Chainlink):", uint256(price));
+        console.log("Depeg Threshold set in contract:", depegThreshold);
+
+        // Ожидаем событие AssetsEvacuated.
+        // Мы не можем точно предсказать amountOut, поэтому проверяем только amountIn.
+        vm.expectEmit(true, false, false, false);
+        emit WeValue.AssetsEvacuated(usdcAmountToEvacuate, 0); // amountOut здесь игнорируется
+        vm.expectEmit();
+        emit WeValue.ProtectedAssetRotated(usdc, dai);
+
+        // Вызываем эвакуацию без флеш-кредита (flashLoanAmount = 0).
+        // Контракт должен использовать логику простого обмена.
+        // Для простого обмена нужен только simpleSwapMinReturn.
+        uint256 simpleSwapMinReturn = 1; // Гарантируем, что обмен произошел.
+        forkWeValue.evacuateIfDepegged(new address[](0), new address[](0), 0, 0, 0, simpleSwapMinReturn);
+
+        // Баланс USDC должен обнулиться.
+        assertEq(IERC20(usdc).balanceOf(address(forkWeValue)), 0, "USDC balance should be 0 after evacuation");
+
+        // Баланс DAI должен стать больше нуля.
+        uint256 finalDaiBalance = IERC20(dai).balanceOf(address(forkWeValue));
+        assertTrue(finalDaiBalance > 0, "DAI balance should be greater than 0 after evacuation");
+        console.log("Final DAI balance:", finalDaiBalance);
+
+        // Защищенный актив и его оракул должны измениться на DAI.
+        assertEq(address(forkWeValue.protectedAsset()), dai, "protectedAsset should be rotated to DAI");
+        assertEq(address(forkWeValue.priceOracle()), daiUsdOracle, "priceOracle should be rotated to DAI oracle");
+
+        // Флаг эвакуации должен быть сброшен.
+        assertFalse(forkWeValue.evacuating(), "Evacuating flag should be false after completion");
+
     }
 }

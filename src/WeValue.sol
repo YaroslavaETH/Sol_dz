@@ -23,16 +23,16 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
     address private constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     // --- Переменные для интеграции ---
-    IPool public AAVE_POOL;                 /// @notice Адрес пула Aave для флеш-кредитов.
-    IOneInchRouter public ONE_INCH_ROUTER;  /// @notice Адрес роутера 1inch для обмена токенов.
-    AggregatorV3Interface public PRICE_ORACLE; /// @notice Адрес оракула Chainlink для получения цены актива.
-    AggregatorV3Interface public SAFE_ASSET_PRICE_ORACLE; /// @notice Адрес оракула Chainlink для получения цены безопасного актива.
-    IERC20 public PROTECTED_ASSET; /// @notice Токен, в котором храним средства фонда (напр. USDC)
-    IERC20 public SAFE_ASSET;      /// @notice Токен, в который эвакуируемся (напр. DAI)
+    IPool public aavePool;                 /// @notice Адрес пула Aave для флеш-кредитов.
+    IOneInchRouter public oneInchRouter;  /// @notice Адрес роутера 1inch для обмена токенов.
+    AggregatorV3Interface public priceOracle; /// @notice Адрес оракула Chainlink для получения цены актива.
+    AggregatorV3Interface public safeAssetPriceOracle; /// @notice Адрес оракула Chainlink для получения цены безопасного актива.
+    IERC20 public protectedAsset; /// @notice Токен, в котором храним средства фонда (напр. USDC)
+    IERC20 public safeAsset;      /// @notice Токен, в который эвакуируемся (напр. DAI)
 
     // --- Параметры безопасности ---
     uint256 public depegThreshold; /// @notice Порог цены для срабатывания защиты
-    bool private _evacuating;      /// @dev Флаг для защиты от повторного входа (re-entrancy) в функцию эвакуации.
+    bool public evacuating;      /// @dev Флаг для защиты от повторного входа (re-entrancy) в функцию эвакуации.
 
     // --- Основные переменные ---
     /// @notice Адрес доверенного отправителя для мета-транзакций (GSN).
@@ -46,7 +46,7 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
     event Donation(address indexed account, uint256 indexed amount);
 
     /// @notice Событие, возникающее при оказании помощи (для будущего функционала).
-    event Help(address indexed account_to, uint256 indexed amount);
+    event Help(address indexed accountTo, uint256 indexed amount);
 
     /// @notice Событие, возникающее после успешной эвакуации активов.
     event AssetsEvacuated(uint256 amountIn, uint256 amountOut);
@@ -54,12 +54,13 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
     /// @notice Событие, возникающее при изменении адреса безопасного актива.
     event SafeAssetChanged(address indexed newSafeAsset);
 
-    /// @notice Событие, возникающее после конвертации ETH баланса контракта в PROTECTED_ASSET.
+    /// @notice Событие, возникающее после конвертации ETH баланса контракта в protectedAsset.
     event EthConverted(uint256 ethAmount, uint256 protectedAssetAmount);
 
-    /// @notice Событие, возникающее после ротации активов, когда SAFE_ASSET становится новым PROTECTED_ASSET.
+    /// @notice Событие, возникающее после ротации активов, когда safeAsset становится новым protectedAsset.
     event ProtectedAssetRotated(address indexed oldProtectedAsset, address indexed newProtectedAsset);
     
+    // --- Ошибки ---
     /// @dev Вызывается при попытке пожертвовать 0 ETH.
     error NullDonation(address account);
 
@@ -87,16 +88,15 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
     function initialize(
         address initialOwner,
         address _trustedForwarderAddress,
-        // --- Новые параметры для механизма защиты ---
-        address aavePool,
-        address oneInchRouter,
-        address priceOracle,
-        address protectedAsset,
-        address safeAssetPriceOracle,
-        address safeAsset,
+        address _aavePool,
+        address _oneInchRouter,
+        address _priceOracle,
+        address _protectedAsset,
+        address _safeAssetPriceOracle,
+        address _safeAsset,
         uint256 _depegThreshold
     ) public virtual initializer {
-        __WeValue_init(initialOwner, _trustedForwarderAddress, aavePool, oneInchRouter, priceOracle, protectedAsset, safeAssetPriceOracle, safeAsset, _depegThreshold);
+        __WeValue_init(initialOwner, _trustedForwarderAddress, _aavePool, _oneInchRouter, _priceOracle, _protectedAsset, _safeAssetPriceOracle, _safeAsset, _depegThreshold);
     }
 
     /**
@@ -105,12 +105,12 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
     function __WeValue_init(
         address initialOwner,
         address _trustedForwarderAddress,
-        address aavePool,
-        address oneInchRouter,
-        address priceOracle,
-        address protectedAsset,
-        address safeAssetPriceOracle,
-        address safeAsset,
+        address _aavePool,
+        address _oneInchRouter,
+        address _priceOracle,
+        address _protectedAsset,
+        address _safeAssetPriceOracle,
+        address _safeAsset,
         uint256 _depegThreshold
     ) internal onlyInitializing {
         // Сначала устанавливаем _trustedForwarder, так как от него зависит _msgSender,
@@ -124,12 +124,12 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
         __UUPSUpgradeable_init();
 
         // Установка параметров для механизма защиты
-        AAVE_POOL = IPool(aavePool);
-        ONE_INCH_ROUTER = IOneInchRouter(oneInchRouter);
-        PRICE_ORACLE = AggregatorV3Interface(priceOracle);
-        PROTECTED_ASSET = IERC20(protectedAsset);
-        SAFE_ASSET_PRICE_ORACLE = AggregatorV3Interface(safeAssetPriceOracle);
-        SAFE_ASSET = IERC20(safeAsset);
+        aavePool = IPool(_aavePool);
+        oneInchRouter = IOneInchRouter(_oneInchRouter);
+        priceOracle = AggregatorV3Interface(_priceOracle);
+        protectedAsset = IERC20(_protectedAsset);
+        safeAssetPriceOracle = AggregatorV3Interface(_safeAssetPriceOracle);
+        safeAsset = IERC20(_safeAsset);
         depegThreshold = _depegThreshold;
 
     }
@@ -159,10 +159,10 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
     }
     
     /**
-     * @notice Конвертирует весь ETH баланс контракта в PROTECTED_ASSET.
+     * @notice Конвертирует весь ETH баланс контракта в protectedAsset.
      * @dev Доступна только владельцу. Требует данные для обмена от 1inch API.
      * @param pools Массив пулов для обмена, полученный от 1inch API.
-     * @param minReturn Минимальное количество PROTECTED_ASSET, которое мы ожидаем получить.
+     * @param minReturn Минимальное количество protectedAsset, которое мы ожидаем получить.
      */
     function convertEthToProtectedAsset(address[] calldata pools, uint256 minReturn) external onlyOwner {
         uint256 ethBalance = address(this).balance;
@@ -170,9 +170,10 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
             revert NoEthToConvert();
         }
 
-        // Вызываем 1inch для обмена ETH на PROTECTED_ASSET
-        uint256 receivedAmount = ONE_INCH_ROUTER.swap{value: ethBalance}(
+        // Вызываем 1inch для обмена ETH на protectedAsset
+        uint256 receivedAmount = oneInchRouter.swap{value: ethBalance}(
             ETH_ADDRESS,
+            address(protectedAsset), // Целевой токен
             ethBalance,
             minReturn,
             pools
@@ -235,12 +236,12 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
     }
 
     /**
-     * @notice Позволяет владельцу изменить адрес безопасного актива (SAFE_ASSET).
+     * @notice Позволяет владельцу изменить адрес безопасного актива (safeAsset).
      * @dev Это может быть полезно, если владелец решит, что другой стейблкоин является более надежным.
      * @param newSafeAsset Адрес нового безопасного актива.
      */
     function setSafeAsset(address newSafeAsset) external onlyOwner {
-        SAFE_ASSET = IERC20(newSafeAsset);
+        safeAsset = IERC20(newSafeAsset);
         emit SafeAssetChanged(newSafeAsset);
     }
 
@@ -267,15 +268,27 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
             return msg.sender;
         }
     }
+    
+    /**
+     * @dev Внутренняя функция для сменя токена, в котором храним средства фонда на защищенный.
+     * Должна вызываться строго после успешной эвакуации.
+     * Новый безопасный актив должен будет установить владелец.
+     */
+    function _rotateAsset() internal {
+        address oldProtectedAsset = address(protectedAsset);
+        protectedAsset = safeAsset;
+        priceOracle = safeAssetPriceOracle;
+        emit ProtectedAssetRotated(oldProtectedAsset, address(protectedAsset));
+    }
 
     /**
      * @notice Запускает эвакуацию активов, если цена защищаемого токена упала ниже порога.
      * @dev Может быть вызвана кем угодно, но требует данные для обмена от 1inch API.
-     * @param manipulationPools Пулы для манипулятивного обмена (SAFE_ASSET -> PROTECTED_ASSET).
-     * @param evacuationPools Пулы для основного обмена (PROTECTED_ASSET -> SAFE_ASSET).
-     * @param flashLoanAmount Сумма SAFE_ASSET, которую нужно занять для манипуляции.
-     * @param manipulationMinReturn Минимальное количество PROTECTED_ASSET, ожидаемое от манипулятивного обмена.
-     * @param evacuationMinReturn Минимальное количество SAFE_ASSET, ожидаемое от основного обмена.
+     * @param manipulationPools Пулы для манипулятивного обмена (safeAsset -> protectedAsset).
+     * @param evacuationPools Пулы для основного обмена (protectedAsset -> safeAsset).
+     * @param flashLoanAmount Сумма safeAsset, которую нужно занять для манипуляции.
+     * @param manipulationMinReturn Минимальное количество protectedAsset, ожидаемое от манипулятивного обмена.
+     * @param evacuationMinReturn Минимальное количество safeAsset, ожидаемое от основного обмена.
      * @param simpleSwapMinReturn Ожидаемый результат от простого обмена (для проверки прибыльности).
      */
     function evacuateIfDepegged(
@@ -286,43 +299,51 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
         uint256 evacuationMinReturn,
         uint256 simpleSwapMinReturn
     ) external {
-        if (_evacuating) {
+        if (evacuating) {
             revert EvacuationInProgress();
         }
 
-        // 1. Проверяем оракул
-        (, int256 price, , , ) = PRICE_ORACLE.latestRoundData();
+        // Проверяем цену защищаемого актива через оракул.
+        (, int256 price, , , ) = priceOracle.latestRoundData();
 
-        // 2. Проверяем порог
+        // Если цена выше или равна порогу, эвакуация не требуется.
+        // casting to 'uint256' is safe because price is a non-negative value
+        // forge-lint: disable-next-line(unsafe-typecast)
         if (uint256(price) >= depegThreshold) {
             revert PriceIsStable();
         }
 
-        _evacuating = true;
+        evacuating = true;
 
-        // 3. Запрашиваем Flash Loan
-        uint256 amountToEvacuate = PROTECTED_ASSET.balanceOf(address(this));
+        // Если на балансе есть защищаемый актив, начинаем процесс эвакуации.
+        uint256 amountToEvacuate = protectedAsset.balanceOf(address(this));
         if (amountToEvacuate > 0) {
-            // Передаем все необходимые параметры в колбэк
+            if(flashLoanAmount > 0){
+            // Вариант 1: Флеш-кредит для манипуляции ценой
+            // Кодируем параметры для передачи в колбэк флеш-кредита.
             bytes memory params = abi.encode(amountToEvacuate, manipulationPools, evacuationPools, manipulationMinReturn, evacuationMinReturn, simpleSwapMinReturn);
-            AAVE_POOL.flashLoanSimple(
+            aavePool.flashLoanSimple(
                 address(this),
-                address(SAFE_ASSET),
+                address(safeAsset),
                 flashLoanAmount,
                 params,
                 0
             );
+            } else {
+            // Вариант 2: Простой обмен без флеш-кредита
+            protectedAsset.approve(address(oneInchRouter), amountToEvacuate);
+            uint256 evacuatedAmount = oneInchRouter.swap(address(protectedAsset), address(safeAsset), amountToEvacuate, simpleSwapMinReturn, evacuationPools);
+            emit AssetsEvacuated(amountToEvacuate, evacuatedAmount);
+            
+            // Ротируем активы и сбрасываем флаг
+            _rotateAsset();
+            evacuating = false;
+            }
+        } else {
+            // Вариант 3: Нет активов для эвакуации, просто ротируем и сбрасываем флаг
+            _rotateAsset();
+            evacuating = false;
         }
-
-        // После успешной эвакуации, производим ротацию активов:
-        // бывший "безопасный" актив становится новым "защищаемым".
-        address oldProtectedAsset = address(PROTECTED_ASSET);
-        PROTECTED_ASSET = SAFE_ASSET;
-        PRICE_ORACLE = SAFE_ASSET_PRICE_ORACLE;
-
-        emit ProtectedAssetRotated(oldProtectedAsset, address(PROTECTED_ASSET));
-
-        _evacuating = false;
     }
 
     /**
@@ -336,60 +357,60 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
         address initiator,
         bytes calldata params
     ) external returns (bool) {
-        // 1. Проверяем, что вызов пришел от пула Aave и мы являемся инициатором
-        if (msg.sender != address(AAVE_POOL) || initiator != address(this)) {
+        // Проверяем, что колбэк вызван именно пулом Aave и для нашего контракта.
+        if (msg.sender != address(aavePool) || initiator != address(this)) {
             revert FlashloanFailed();
         }
 
-        // 2. Декодируем параметры, которые мы передали в flashLoanSimple
+        // Декодируем параметры, переданные из основной функции.
         (uint256 amountToEvacuate, address[] memory manipulationPools, address[] memory evacuationPools, uint256 manipulationMinReturn, uint256 evacuationMinReturn, uint256 simpleSwapMinReturn) = abi.decode(params, (uint256, address[], address[], uint256, uint256, uint256));
 
-        // 3. Манипуляция: Продаем заемные SAFE_ASSET, чтобы купить PROTECTED_ASSET и поднять его цену.
-        // Даем разрешение 1inch потратить заемные SAFE_ASSET.
-        IERC20(asset).approve(address(ONE_INCH_ROUTER), amount);
-        ONE_INCH_ROUTER.swap(
+        // Манипулятивный обмен: продаем заемный safeAsset, чтобы купить protectedAsset.
+        // Даем разрешение роутеру 1inch потратить заемные средства.
+        IERC20(asset).approve(address(oneInchRouter), amount);
+        oneInchRouter.swap(
             asset,
+            address(protectedAsset), // Целевой токен
             amount,
             manipulationMinReturn,
             manipulationPools
         );
 
-        // 4. Основной обмен: Продаем наши PROTECTED_ASSET по искусственно завышенной цене.
-        // Вычисляем ВЕСЬ текущий баланс PROTECTED_ASSET (наши старые + купленные на шаге 3)
-        uint256 totalProtectedAssetBalance = PROTECTED_ASSET.balanceOf(address(this));
-        // Даем точечное разрешение 1inch потратить все эти токены.
-        PROTECTED_ASSET.approve(address(ONE_INCH_ROUTER), totalProtectedAssetBalance);
-        uint256 evacuatedAmount = ONE_INCH_ROUTER.swap(
-            address(PROTECTED_ASSET),
+        // Основной обмен: продаем все protectedAsset по новой, более высокой цене.
+        // Баланс включает как исходные активы, так и купленные на предыдущем шаге.
+        uint256 totalProtectedAssetBalance = protectedAsset.balanceOf(address(this));
+        // Даем разрешение роутеру 1inch на обмен.
+        protectedAsset.approve(address(oneInchRouter), totalProtectedAssetBalance);
+        uint256 evacuatedAmount = oneInchRouter.swap(
+            address(protectedAsset),
+            address(safeAsset), // Целевой токен
             totalProtectedAssetBalance,
             evacuationMinReturn,
             evacuationPools
         );
 
-        // Дополнительная проверка: убеждаемся, что основной обмен принес ожидаемое количество токенов.
-        // Хотя роутер 1inch должен сам отменить транзакцию, если это условие не выполнено,
-        // явная проверка в нашем коде добавляет дополнительный уровень безопасности.
-        if (evacuatedAmount < evacuationMinReturn) revert SwapFailed();
-
-        // 5. Проверка прибыльности: убеждаемся, что сложная стратегия принесла больше, чем принес бы простой обмен.
-        // Если это не так, вся операция была бессмысленной.
+        // Проверяем прибыльность: стратегия с флеш-кредитом должна быть выгоднее простого обмена.
         if (evacuatedAmount <= simpleSwapMinReturn) {
             revert SwapFailed(); // Стратегия не была прибыльной
         }
 
-        // 6. Рассчитываем общую сумму к возврату (кредит + комиссия Aave)
+        // Рассчитываем сумму для погашения флеш-кредита с комиссией.
         uint256 amountToRepay = amount + premium;
 
-        // 7. Главная проверка безопасности: убеждаемся, что сумма, полученная от эвакуации,
-        // достаточна для полного погашения флеш-кредита с комиссией.
+        // Главная проверка: убеждаемся, что вырученных средств достаточно для погашения долга.
         if (evacuatedAmount < amountToRepay) {
             revert SwapFailed();
         }
         
         emit AssetsEvacuated(amountToEvacuate, evacuatedAmount);
 
-        // 8. Даем разрешение Aave забрать долг с комиссией.
-        return IERC20(asset).approve(address(AAVE_POOL), amountToRepay);
+        // Даем разрешение пулу Aave забрать сумму долга.
+        IERC20(asset).approve(address(aavePool), amountToRepay);
+
+        _rotateAsset();
+        evacuating = false;
+
+        return true;
     }
 
 }
