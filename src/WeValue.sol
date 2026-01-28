@@ -161,10 +161,10 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
     /**
      * @notice Конвертирует весь ETH баланс контракта в protectedAsset.
      * @dev Доступна только владельцу. Требует данные для обмена от 1inch API.
-     * @param pools Массив пулов для обмена, полученный от 1inch API.
+     * @param data Данные для обмена, полученный от 1inch API.
      * @param minReturn Минимальное количество protectedAsset, которое мы ожидаем получить.
      */
-    function convertEthToProtectedAsset(address[] calldata pools, uint256 minReturn) external onlyOwner {
+    function convertEthToProtectedAsset(bytes calldata data, uint256 minReturn) external onlyOwner {
         uint256 ethBalance = address(this).balance;
         if (ethBalance == 0) {
             revert NoEthToConvert();
@@ -176,7 +176,7 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
             address(protectedAsset), // Целевой токен
             ethBalance,
             minReturn,
-            pools
+            data
         );
 
         emit EthConverted(ethBalance, receivedAmount);
@@ -284,16 +284,16 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
     /**
      * @notice Запускает эвакуацию активов, если цена защищаемого токена упала ниже порога.
      * @dev Может быть вызвана кем угодно, но требует данные для обмена от 1inch API.
-     * @param manipulationPools Пулы для манипулятивного обмена (safeAsset -> protectedAsset).
-     * @param evacuationPools Пулы для основного обмена (protectedAsset -> safeAsset).
+     * @param manipulationData Данные для манипулятивного обмена (safeAsset -> protectedAsset).
+     * @param evacuationData Данные для основного обмена (protectedAsset -> safeAsset).
      * @param flashLoanAmount Сумма safeAsset, которую нужно занять для манипуляции.
      * @param manipulationMinReturn Минимальное количество protectedAsset, ожидаемое от манипулятивного обмена.
      * @param evacuationMinReturn Минимальное количество safeAsset, ожидаемое от основного обмена.
      * @param simpleSwapMinReturn Ожидаемый результат от простого обмена (для проверки прибыльности).
      */
     function evacuateIfDepegged(
-        address[] calldata manipulationPools,
-        address[] calldata evacuationPools,
+        bytes calldata manipulationData,
+        bytes calldata evacuationData,
         uint256 flashLoanAmount,
         uint256 manipulationMinReturn,
         uint256 evacuationMinReturn,
@@ -321,7 +321,7 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
             if(flashLoanAmount > 0){
             // Вариант 1: Флеш-кредит для манипуляции ценой
             // Кодируем параметры для передачи в колбэк флеш-кредита.
-            bytes memory params = abi.encode(amountToEvacuate, manipulationPools, evacuationPools, manipulationMinReturn, evacuationMinReturn, simpleSwapMinReturn);
+            bytes memory params = abi.encode(amountToEvacuate, manipulationData, evacuationData, manipulationMinReturn, evacuationMinReturn, simpleSwapMinReturn);
             aavePool.flashLoanSimple(
                 address(this),
                 address(safeAsset),
@@ -332,7 +332,7 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
             } else {
             // Вариант 2: Простой обмен без флеш-кредита
             protectedAsset.approve(address(oneInchRouter), amountToEvacuate);
-            uint256 evacuatedAmount = oneInchRouter.swap(address(protectedAsset), address(safeAsset), amountToEvacuate, simpleSwapMinReturn, evacuationPools);
+            uint256 evacuatedAmount = oneInchRouter.swap(address(protectedAsset), address(safeAsset), amountToEvacuate, simpleSwapMinReturn, evacuationData);
             emit AssetsEvacuated(amountToEvacuate, evacuatedAmount);
             
             // Ротируем активы и сбрасываем флаг
@@ -363,7 +363,7 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
         }
 
         // Декодируем параметры, переданные из основной функции.
-        (uint256 amountToEvacuate, address[] memory manipulationPools, address[] memory evacuationPools, uint256 manipulationMinReturn, uint256 evacuationMinReturn, uint256 simpleSwapMinReturn) = abi.decode(params, (uint256, address[], address[], uint256, uint256, uint256));
+        (uint256 amountToEvacuate, bytes memory manipulationData, bytes memory evacuationData, uint256 manipulationMinReturn, uint256 evacuationMinReturn, uint256 simpleSwapMinReturn) = abi.decode(params, (uint256, bytes, bytes, uint256, uint256, uint256));
 
         // Манипулятивный обмен: продаем заемный safeAsset, чтобы купить protectedAsset.
         // Даем разрешение роутеру 1inch потратить заемные средства.
@@ -373,7 +373,7 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
             address(protectedAsset), // Целевой токен
             amount,
             manipulationMinReturn,
-            manipulationPools
+            manipulationData
         );
 
         // Основной обмен: продаем все protectedAsset по новой, более высокой цене.
@@ -386,7 +386,7 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
             address(safeAsset), // Целевой токен
             totalProtectedAssetBalance,
             evacuationMinReturn,
-            evacuationPools
+            evacuationData
         );
 
         // Проверяем прибыльность: стратегия с флеш-кредитом должна быть выгоднее простого обмена.
@@ -406,7 +406,6 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
 
         // Даем разрешение пулу Aave забрать сумму долга.
         IERC20(asset).approve(address(aavePool), amountToRepay);
-
         _rotateAsset();
         evacuating = false;
 
