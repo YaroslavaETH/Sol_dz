@@ -7,9 +7,9 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IPool} from "./interfaces/IPool.sol";
-import {IOneInchRouter} from "./interfaces/IOneInchRouter.sol";
-import {AggregatorV3Interface} from "./interfaces/AggregatorV3Interface.sol";
+import {IPool} from "src/interfaces/IPool.sol";
+import {IOneInchRouter} from "src/interfaces/IOneInchRouter.sol";
+import {AggregatorV3Interface} from "src/interfaces/AggregatorV3Interface.sol";
 
 /**
  * @title Контракт благотворительного фонда WeValue
@@ -86,6 +86,8 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
      * @param _trustedForwarderAddress Адрес доверенного отправителя.
      */
     function initialize(
+        string memory name,
+        string memory symbol,
         address initialOwner,
         address _trustedForwarderAddress,
         address _aavePool,
@@ -96,13 +98,15 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
         address _safeAsset,
         uint256 _depegThreshold
     ) public virtual initializer {
-        __WeValue_init(initialOwner, _trustedForwarderAddress, _aavePool, _oneInchRouter, _priceOracle, _protectedAsset, _safeAssetPriceOracle, _safeAsset, _depegThreshold);
+        __WeValue_init(name, symbol, initialOwner, _trustedForwarderAddress, _aavePool, _oneInchRouter, _priceOracle, _protectedAsset, _safeAssetPriceOracle, _safeAsset, _depegThreshold);
     }
 
     /**
      * @dev Внутренний инициализатор, который может быть вызван дочерними контрактами.
      */
     function __WeValue_init(
+        string memory name,
+        string memory symbol,
         address initialOwner,
         address _trustedForwarderAddress,
         address _aavePool,
@@ -118,8 +122,8 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
         _setTrustedForwarder(_trustedForwarderAddress);
 
         // Инициализация базовых контрактов OpenZeppelin.
-        __ERC20_init("WeValue", "WEVALUE");
-        __ERC20Permit_init("WeValue");
+        __ERC20_init(name, symbol);
+        __ERC20Permit_init(name);
         __Ownable_init(initialOwner);
         __UUPSUpgradeable_init();
 
@@ -192,7 +196,7 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
      * @return string memory Строка с номером версии.
      */
     function version()  external pure virtual returns (string memory) {
-        return "1.0";   
+        return "1.1";   
     }
     
     /**
