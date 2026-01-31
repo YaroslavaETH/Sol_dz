@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.27;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol"; 
-import {AggregatorV3Interface} from "../src/interfaces/AggregatorV3Interface.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {AggregatorV3Interface} from "src/interfaces/AggregatorV3Interface.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Test, console} from "forge-std/Test.sol";
-import {WeValue} from "../src/WeValue.sol";
+import {WeValue} from "src/WeValue.sol";
 import {MockERC20, MockAggregatorV3, MockOneInchRouter, MockAavePool} from "test/mocks/Mocks.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -56,6 +56,8 @@ contract WeValueTest is Test {
         // Подготовка данных для инициализации
         bytes memory initData = abi.encodeWithSelector(
             WeValue.initialize.selector,
+            "WeValue",
+            "WEVALUE",
             owner,
             trustedForwarder,
             address(mockAavePool),
@@ -93,7 +95,7 @@ contract WeValueTest is Test {
         assertEq(address(weValue.safeAssetPriceOracle()), address(mockSafeAssetPriceOracle), "Incorrect safe asset price oracle address");
         assertEq(address(weValue.safeAsset()), address(mockSafeAsset), "Incorrect safe asset address");
         assertEq(weValue.depegThreshold(), 95_000_000, "Incorrect depeg threshold");
-        assertEq(weValue.version(), "1.0", "Incorrect version");
+        assertEq(weValue.version(), "1.1", "Incorrect version");
     }
 
     /// @dev Тестирует успешное пожертвование.
@@ -432,9 +434,9 @@ contract WeValueTest is Test {
         assertEq(address(weValue.priceOracle()), address(mockPriceOracle), "priceOracle should not be rotated");
     }
 
-    // ===================================================================================
-    // ============================== FORK TESTS =========================================
-    // ===================================================================================
+    // =================================================================
+    // ========================== FORK TESTS ===========================
+    // =================================================================
 
     /// @dev Тестирует успешную эвакуацию в форке mainnet. Только для варианта 3, когда не нужен обмен,но цена упала. 
     /// Не получается сделать fork на 1inch, проверяет Chainlink
@@ -484,7 +486,7 @@ contract WeValueTest is Test {
         // assertEq(IERC20(usdc).balanceOf(address(forkWeValue)), usdcAmountToEvacuate, "Initial USDC balance is incorrect");
         console.log("USDC balance to evacuate:", IERC20(usdc).balanceOf(address(forkWeValue)));
 
-        // --- Логирование для отладки ---
+        // Логирование для отладки
         ( , int256 price, , , ) = AggregatorV3Interface(usdcUsdOracle).latestRoundData();
         // casting to 'uint256' is safe because price is a non-negative value
         // forge-lint: disable-next-line(unsafe-typecast)

@@ -17,7 +17,7 @@ interface IWeValue {
     ) external returns (bool);
 }
 
-// --- Мок токена ERC20 ---
+// Мок токена ERC20
 contract MockERC20 is ERC20 {
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
 
@@ -30,7 +30,7 @@ contract MockERC20 is ERC20 {
     }
 }
 
-// --- Мок оракула Chainlink ---
+// Мок оракула Chainlink
 contract MockAggregatorV3 is AggregatorV3Interface {
     int256 public latestAnswer;
 
@@ -46,14 +46,14 @@ contract MockAggregatorV3 is AggregatorV3Interface {
         return (1, latestAnswer, block.timestamp, block.timestamp, 1);
     }
 
-    // --- Неиспользуемые функции ---
+    // Неиспользуемые функции
     function decimals() external pure returns (uint8) { return 8; }
     function description() external pure returns (string memory) { return "Mock"; }
     function version() external pure returns (uint256) { return 1; }
     function getRoundData(uint80) external pure returns (uint80, int256, uint256, uint256, uint80) { revert("Not implemented"); }
 }
 
-// --- Мок роутера 1inch ---
+// Мок роутера 1inch
 contract MockOneInchRouter is IOneInchRouter {
     address public constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     address public immutable PROTECTED_ASSET;
@@ -91,7 +91,7 @@ contract MockOneInchRouter is IOneInchRouter {
     }
 }
 
-// --- Мок пула Aave ---
+// Мок пула Aave
 contract MockAavePool is IPool { // forgefmt: disable-line
     IWeValue public weValueContract;
     MockERC20 public safeAssetMock;

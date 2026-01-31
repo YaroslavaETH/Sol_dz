@@ -196,7 +196,7 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
      * @return string memory Строка с номером версии.
      */
     function version()  external pure virtual returns (string memory) {
-        return "1.1";   
+        return "0.2";   
     }
     
     /**
