@@ -2,6 +2,7 @@ import {  useConnection } from 'wagmi'
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { ContractInfo, UserTokenBalance, CurrentPriceGaz, BalanceWallet, BalanceContract } from  './read-contract.tsx';
 import {DonationForm} from './write-contract.tsx';
+import DonationChart from './DonationChart.tsx';
 
 
 function App() {
@@ -24,7 +25,13 @@ function App() {
           <br />
           <CurrentPriceGaz chain={connection.chain}/>
           <br />
-          <BalanceWallet address={connection.address}/>
+          <BalanceWallet address={connection.address} />
+          {connection.isConnected && (
+            <div>
+              <h2>Помочь фонду</h2>
+              <DonationForm />
+            </div>
+          )}
         </div>
       </div>
       <hr />
@@ -35,12 +42,11 @@ function App() {
         <BalanceContract />
         {connection.isConnected && <UserTokenBalance address={connection.address} />}
       </div>
-      {connection.isConnected && (
-        <div>
-          <h2>Помочь фонду</h2>
-          <DonationForm />
-        </div>
-      )}
+      <hr />
+      <div>
+        <h2>Статистика помощи фонду</h2>
+        <DonationChart />
+      </div>
     </>
   )
 }

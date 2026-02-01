@@ -5,22 +5,55 @@ schema:
   file: ./schema.graphql
 dataSources:
   - kind: ethereum
-    name: WeValueProxy
+    name: WeValue
     network: sepolia
     source:
       address: "0x9dECFb688Cc336442A581D280e748a0909348A45"
-      abi: WeValueProxy
+      abi: WeValue
       startBlock: 10162440
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
-        - Upgraded
+        - Approval
+        - AssetsEvacuated
+        - Donation
+        - EIP712DomainChanged
+        - EthConverted
+        - Help
+        - Initialized
+        - OwnershipTransferred
+        - ProtectedAssetRotated
+        - SafeAssetChanged
+        - Transfer
+        - TrustedForwarderChanged
       abis:
-        - name: WeValueProxy
-          file: ./abis/WeValueProxy.json
+        - name: WeValue
+          file: ./abis/WeValue.json
       eventHandlers:
-        - event: Upgraded(indexed address)
-          handler: handleUpgraded
-      file: ./src/we-value-proxy.ts
+        - event: Approval(indexed address,indexed address,uint256)
+          handler: handleApproval
+        - event: AssetsEvacuated(uint256,uint256)
+          handler: handleAssetsEvacuated
+        - event: Donation(indexed address,indexed uint256)
+          handler: handleDonation
+        - event: EIP712DomainChanged()
+          handler: handleEIP712DomainChanged
+        - event: EthConverted(uint256,uint256)
+          handler: handleEthConverted
+        - event: Help(indexed address,indexed uint256)
+          handler: handleHelp
+        - event: Initialized(uint64)
+          handler: handleInitialized
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleOwnershipTransferred
+        - event: ProtectedAssetRotated(indexed address,indexed address)
+          handler: handleProtectedAssetRotated
+        - event: SafeAssetChanged(indexed address)
+          handler: handleSafeAssetChanged
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleTransfer
+        - event: TrustedForwarderChanged(indexed address)
+          handler: handleTrustedForwarderChanged
+      file: ./src/we-value.ts

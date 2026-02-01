@@ -3,6 +3,9 @@
     "WeValueProxy": {
       "address": "0x9dECFb688Cc336442A581D280e748a0909348A45",
       "startBlock": 10162440
+    },
+    "WeValue": {
+      "address": "0x768e550f12ab040bc2A5EC86Ac6335B3396F4975"
     }
   }
 }

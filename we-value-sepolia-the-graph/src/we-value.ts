@@ -11,7 +11,6 @@ import {
   SafeAssetChanged as SafeAssetChangedEvent,
   Transfer as TransferEvent,
   TrustedForwarderChanged as TrustedForwarderChangedEvent,
-  Upgraded as UpgradedEvent,
 } from "../generated/WeValue/WeValue"
 import {
   Approval,
@@ -26,7 +25,6 @@ import {
   SafeAssetChanged,
   Transfer,
   TrustedForwarderChanged,
-  Upgraded,
 } from "../generated/schema"
 
 export function handleApproval(event: ApprovalEvent): void {
@@ -194,19 +192,6 @@ export function handleTrustedForwarderChanged(
     event.transaction.hash.concatI32(event.logIndex.toI32()),
   )
   entity.newTrustedForwarder = event.params.newTrustedForwarder
-
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
-
-  entity.save()
-}
-
-export function handleUpgraded(event: UpgradedEvent): void {
-  let entity = new Upgraded(
-    event.transaction.hash.concatI32(event.logIndex.toI32()),
-  )
-  entity.implementation = event.params.implementation
 
   entity.blockNumber = event.block.number
   entity.blockTimestamp = event.block.timestamp
