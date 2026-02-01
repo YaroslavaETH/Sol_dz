@@ -4,8 +4,8 @@ pragma solidity ^0.8.27;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {AggregatorV3Interface} from "src/interfaces/AggregatorV3Interface.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {Test, console} from "forge-std/Test.sol";
-import {WeValue} from "src/WeValue.sol";
+import {Test, console} from "forge-std/Test.sol"; 
+import {WeValue} from "src/WeValue_v2.sol";
 import {MockERC20, MockAggregatorV3, MockOneInchRouter, MockAavePool} from "test/mocks/Mocks.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -95,7 +95,7 @@ contract WeValueTest is Test {
         assertEq(address(weValue.safeAssetPriceOracle()), address(mockSafeAssetPriceOracle), "Incorrect safe asset price oracle address");
         assertEq(address(weValue.safeAsset()), address(mockSafeAsset), "Incorrect safe asset address");
         assertEq(weValue.depegThreshold(), 95_000_000, "Incorrect depeg threshold");
-        assertEq(weValue.version(), "1.1", "Incorrect version");
+        assertEq(weValue.version(), "0.2", "Incorrect version");
     }
 
     /// @dev Тестирует успешное пожертвование.
@@ -260,7 +260,7 @@ contract WeValueTest is Test {
     function test_setTrustedForwarder_RevertNotOwner() public {
         // Ожидаем ошибку, специфичную для Ownable
         vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, bob));
-        vm.prank(bob);
+        vm.prank(bob); 
         // Боб (не владелец) пытается вызвать функцию
         weValue.setTrustedForwarder(alice);
     }
@@ -278,7 +278,7 @@ contract WeValueTest is Test {
     function test_setSafeAsset_RevertNotOwner() public {
         // Ожидаем ошибку, специфичную для Ownable
         vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, bob));
-        vm.prank(bob);
+        vm.prank(bob); 
         // Боб (не владелец) пытается вызвать функцию        
         weValue.setSafeAsset(address(mockSafeAsset2));
     }
@@ -437,6 +437,7 @@ contract WeValueTest is Test {
     // =================================================================
     // ========================== FORK TESTS ===========================
     // =================================================================
+    // forge test --fork-url mainnet --match-test test_EvacuateIfDepegged_Fork_Success -vv
 
     /// @dev Тестирует успешную эвакуацию в форке mainnet. Только для варианта 3, когда не нужен обмен,но цена упала. 
     /// Не получается сделать fork на 1inch, проверяет Chainlink
@@ -465,6 +466,8 @@ contract WeValueTest is Test {
 
         bytes memory initData = abi.encodeWithSelector(
             WeValue.initialize.selector,
+            "WeValue",
+            "WEVALUE",
             owner,
             trustedForwarder,
             aavePool,
