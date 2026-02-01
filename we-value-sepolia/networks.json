@@ -1,0 +1,8 @@
+{
+  "sepolia": {
+    "ERC1967Proxy": {
+      "address": "0x9dECFb688Cc336442A581D280e748a0909348A45",
+      "startBlock": 10162440
+    }
+  }
+}
