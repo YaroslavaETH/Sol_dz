@@ -9,9 +9,6 @@ import { http } from 'wagmi';
 const sepoliaRpcUrl = import.meta.env.VITE_SEPOLIA_RPC_URL;
 const mainnetRpcUrl = import.meta.env.VITE_MAINNET_RPC_URL;
 
-console.log("VITE_SEPOLIA_RPC_URL from .env:", sepoliaRpcUrl);
-console.log("VITE_MAINNET_RPC_URL from .env:", mainnetRpcUrl);
-
 export const config = getDefaultConfig({
   appName: 'WeValue App',
   projectId: 'ae13ca8d63ff115b1f9ce2311e233ba7',

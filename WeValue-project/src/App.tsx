@@ -14,11 +14,11 @@ function App() {
         <h2>Connection</h2>
         <ConnectButton showBalance={true}/>
         <div>
-          status: {connection.status}
+          Статус: {connection.status}
           <br />
-          addresses: {JSON.stringify(connection.addresses)}
+          Адреса: {JSON.stringify(connection.addresses)}
           <br />
-          current addresses: {JSON.stringify(connection.address)}
+          Текущий адрес: {JSON.stringify(connection.address)}
           <br />
           chainId: {connection.chainId}
           <br />

@@ -12,7 +12,7 @@ interface ReadContractProps {
  */
 export function ContractInfo() {
   // Запрос публичных данных, который выполняется всегда
-  const { data: publicData, isLoading } = useReadContracts({
+  const { data: publicData, isLoading, isError, error } = useReadContracts({
     contracts: [
       {
         ...WeValueContractConfig,
@@ -35,7 +35,10 @@ export function ContractInfo() {
 
   const [name, decimals, totalSupply, protectedAsset] = publicData?.map(item => item.result) ?? [];
 
-  if (isLoading) return <div>Fetching contract info...</div>;
+  if (isLoading) return <div>Загрузка информации о контракте...</div>;
+  if (isError) {
+    return <div>Ошибка загрузки данных: {(error as BaseError).shortMessage || error.message}</div>
+  }
 
   return (
     <>
@@ -51,7 +54,7 @@ export function ContractInfo() {
  * Отображается только при подключенном кошельке.
  */
 export function UserTokenBalance({ address }: ReadContractProps) {
-  const { data, isLoading } = useReadContracts({
+  const { data, isLoading, isError, error } = useReadContracts({
     contracts: [
       { ...WeValueContractConfig, functionName: 'balanceOf', args: [address!] },
       { ...WeValueContractConfig, functionName: 'name' },
@@ -60,7 +63,10 @@ export function UserTokenBalance({ address }: ReadContractProps) {
     query: { enabled: !!address },
   });
 
-  if (isLoading) return <div>Fetching your token balance...</div>;
+  if (isLoading) return <div>Загрузка вашего баланса...</div>;
+  if (isError) {
+    return <div>Ошибка загрузки баланса: {(error as BaseError).shortMessage || error.message}</div>
+  }
 
   const [balance, name, decimals] = data?.map(item => item.result) ?? [];
 
@@ -75,10 +81,10 @@ export function UserTokenBalance({ address }: ReadContractProps) {
 function ReadContractProtectedAsset({ address }: ReadContractProps) {
   // Если адрес еще не загружен, ничего не рендерим
   if (!address) {
-    return <div>Loading protected asset info...</div>;
+    return <div>Загрузка информации о защищенном активе...</div>;
   }
 
-  const { data: publicData, isLoading } = useReadContracts({
+  const { data: publicData, isLoading, isError, error } = useReadContracts({
     contracts: [
       {
         address: address, // Адрес protectedAsset
@@ -99,11 +105,12 @@ function ReadContractProtectedAsset({ address }: ReadContractProps) {
     ],
   });
 
-  if (isLoading) return <div>Fetching protected asset balance...</div>;
+  if (isLoading) return <div>Загрузка баланса защищенного актива...</div>;
+  if (isError) {
+    return <div>Ошибка загрузки баланса фонда: {(error as BaseError).shortMessage || error.message}</div>
+  }
     
   const [name, decimals, balance] = publicData?.map(item => item.result) ?? [];
-  console.log("Адрес токена: ", address);
-  console.log("Баланс фонда: ", balance, "Валюта: ", name, "Десятичные цифры: ", decimals);
 
   return (
     <div>Баланс фонда: {balance !== undefined && decimals !== undefined ? formatUnits(balance, decimals) : 'N/A'} {name} </div>
@@ -112,8 +119,8 @@ function ReadContractProtectedAsset({ address }: ReadContractProps) {
 
 export function CurrentPriceGaz({ chain }: { chain?: { nativeCurrency?: { decimals: number; symbol: string } } }){
   const { data, isLoading, isError } = useGasPrice();
-   if (isLoading) return <div>Fetching gas price</div>;
-   if (isError) return <div>Error fetching gas price</div>;
+   if (isLoading) return <div>Загрузка цены на газ...</div>;
+   if (isError) return <div>Ошибка загрузки цены на газ</div>;
    
    const gasPriceFormatted = data && chain?.nativeCurrency
      ? formatUnits(data, chain.nativeCurrency.decimals)
@@ -131,8 +138,8 @@ export function BalanceWallet({ address }: ReadContractProps) {
     address: address
   });
 
-  if (isLoading) return <div>Fetching native balance...</div>;
-  if (isError) return <div>Error fetching native balance</div>;
+  if (isLoading) return <div>Загрузка баланса...</div>;
+  if (isError) return <div>Ошибка загрузки баланса</div>;
   return (
     <div>Баланс кошелька: {data?.value && data?.decimals ? formatEther(data?.value, "gwei") : 'N/A'} gwei </div>
   )
@@ -145,8 +152,8 @@ export function BalanceContract() {
     address: WeValueContractConfig.address
   });
 
-  if (isLoading) return <div>Fetching native balance...</div>;
-  if (isError) return <div>Error fetching native balance</div>;
+  if (isLoading) return <div>Загрузка баланса контракта...</div>;
+  if (isError) return <div>Ошибка загрузки баланса контракта</div>;
   return (
     <div>Баланс контракта: {data?.value && data?.decimals ? formatEther(data?.value, "gwei") : 'N/A'} gwei </div>
   )
