@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {Script, console} from "forge-std/script.sol";
-import {WeValue} from "src/WeValue.sol";
+import {WeValue} from "src/WeValue_v2.sol";
 import {CloneWeValue} from "src/CloneWeValue.sol";
 
 /**
@@ -14,7 +14,7 @@ import {CloneWeValue} from "src/CloneWeValue.sol";
  */
 contract CreateCloneSepolia is Script {
     address private constant FACTORY_ADDRESS = 0x0CD517ba2C211BB1bA3a33CC959FF8764EaE39af;
-    address private constant IMPLEMENTATION_ADDRESS = 0x305E96cF0257f8C439FF80d0D4C9AFBc276f0ad1;
+    // address private constant IMPLEMENTATION_ADDRESS = 0x768e550f12ab040bc2A5EC86Ac6335B3396F4975;
     bytes32 private constant SALT = keccak256("MyFirstFund");
     address private constant AAVE_POOL = address(0);
     address private constant ONE_INCH_ROUTER = address(0);
@@ -36,6 +36,10 @@ contract CreateCloneSepolia is Script {
 
         vm.startBroadcast(uint256(deployerPrivateKeyBytes));
  
+        // т.к. не удается пока задеплоить новую версию имплементации через прокси, задеплоим ее отдельно
+        address IMPLEMENTATION_ADDRESS = address(new WeValue());
+        console.log("Implementation deployed at:", IMPLEMENTATION_ADDRESS);
+
         // Создаем клон
         address cloneAddress = factory.deployWeValue(IMPLEMENTATION_ADDRESS, SALT);
 
