@@ -510,6 +510,7 @@ contract WeValueTest is Test {
         // Контракт должен использовать логику простого обмена.
         // Для простого обмена нужен только simpleSwapMinReturn.
         uint256 simpleSwapMinReturn = 1; // Гарантируем, что обмен произошел.
+        vm.prank(owner);
         forkWeValue.evacuateIfDepegged("0x", "0x", 0, 0, 0, simpleSwapMinReturn);
 
         // // Баланс USDC должен обнулиться.

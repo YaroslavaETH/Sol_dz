@@ -302,7 +302,7 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
         uint256 manipulationMinReturn,
         uint256 evacuationMinReturn,
         uint256 simpleSwapMinReturn
-    ) external {
+    ) external onlyOwner {
         if (evacuating) {
             revert EvacuationInProgress();
         }
