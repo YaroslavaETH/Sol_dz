@@ -26,7 +26,7 @@
     "type": "error"
   },
   { "inputs": [], "name": "ERC1967NonPayable", "type": "error" },
-  { "inputs": [], "name": "FailedInnerCall", "type": "error" },
+  { "inputs": [], "name": "FailedCall", "type": "error" },
   {
     "anonymous": false,
     "inputs": [
