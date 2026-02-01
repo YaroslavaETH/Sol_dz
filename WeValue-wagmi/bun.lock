@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "wevalue-project",
+      "name": "wevalue-wagmi",
       "dependencies": {
         "@rainbow-me/rainbowkit": "^2.2.10",
         "@tanstack/react-query": "latest",

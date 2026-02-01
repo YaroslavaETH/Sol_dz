@@ -1,5 +1,5 @@
 {
-  "name": "wevalue-project",
+  "name": "wevalue-wagmi",
   "private": true,
   "type": "module",
   "scripts": {
