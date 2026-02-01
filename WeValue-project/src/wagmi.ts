@@ -4,16 +4,22 @@ import {
   getDefaultConfig,
   RainbowKitProvider,
 } from '@rainbow-me/rainbowkit';
-import { WagmiProvider } from 'wagmi';
-import {
-  QueryClientProvider,
-  QueryClient,
-} from "@tanstack/react-query";
+import { http } from 'wagmi';
+
+const sepoliaRpcUrl = import.meta.env.VITE_SEPOLIA_RPC_URL;
+const mainnetRpcUrl = import.meta.env.VITE_MAINNET_RPC_URL;
+
+console.log("VITE_SEPOLIA_RPC_URL from .env:", sepoliaRpcUrl);
+console.log("VITE_MAINNET_RPC_URL from .env:", mainnetRpcUrl);
 
 export const config = getDefaultConfig({
   appName: 'WeValue App',
   projectId: 'ae13ca8d63ff115b1f9ce2311e233ba7',
-  chains: [mainnet, sepolia]
+  chains: [mainnet, sepolia],
+  transports: {
+    [mainnet.id]: http(mainnetRpcUrl),
+    [sepolia.id]: http(sepoliaRpcUrl),
+  },
 })
 
 declare module 'wagmi' {

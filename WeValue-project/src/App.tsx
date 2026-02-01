@@ -1,46 +1,46 @@
-import { useConnect, useConnection, useConnectors, useDisconnect } from 'wagmi'
+import {  useConnection } from 'wagmi'
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { ContractInfo, UserTokenBalance, CurrentPriceGaz, BalanceWallet, BalanceContract } from  './read-contract.tsx';
+import {DonationForm} from './write-contract.tsx';
+
 
 function App() {
   const connection = useConnection()
-  const { connect, status, error } = useConnect()
-  const connectors = useConnectors()
-  const { disconnect } = useDisconnect()
+  // const { disconnect } = useDisconnect()
 
   return (
     <>
       <div>
         <h2>Connection</h2>
-        <ConnectButton />
+        <ConnectButton showBalance={true}/>
         <div>
           status: {connection.status}
           <br />
           addresses: {JSON.stringify(connection.addresses)}
           <br />
+          current addresses: {JSON.stringify(connection.address)}
+          <br />
           chainId: {connection.chainId}
+          <br />
+          <CurrentPriceGaz chain={connection.chain}/>
+          <br />
+          <BalanceWallet address={connection.address}/>
         </div>
-
-        {connection.status === 'connected' && (
-          <button type="button" onClick={() => disconnect()}>
-            Disconnect
-          </button>
-        )}
       </div>
-
+      <hr />
       <div>
-        <h2>Connect</h2>
-        {connectors.map((connector) => (
-          <button
-            key={connector.uid}
-            onClick={() => connect({ connector })}
-            type="button"
-          >
-            {connector.name}
-          </button>
-        ))}
-        <div>{status}</div>
-        <div>{error?.message}</div>
+        <h2>Информация по благотворительному фонду</h2>
+        <ContractInfo />
+        <br />
+        <BalanceContract />
+        {connection.isConnected && <UserTokenBalance address={connection.address} />}
       </div>
+      {connection.isConnected && (
+        <div>
+          <h2>Помочь фонду</h2>
+          <DonationForm />
+        </div>
+      )}
     </>
   )
 }
