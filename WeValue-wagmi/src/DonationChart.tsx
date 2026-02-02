@@ -86,6 +86,7 @@ const DonationChart = () => {
           ],
         },
         options: {
+          responsive: false, // Отключаем отзывчивость, чтобы график использовал размеры canvas
           scales: {
             y: {
               beginAtZero: true,
