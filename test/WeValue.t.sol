@@ -292,6 +292,7 @@ contract WeValueTest is Test {
         vm.expectRevert(WeValue.PriceIsStable.selector);
 
         // Вызываем функцию
+        vm.prank(owner);
         weValue.evacuateIfDepegged("0x", "0x", 0, 0, 0, 0);
     }
 
@@ -309,6 +310,7 @@ contract WeValueTest is Test {
         vm.expectRevert(WeValue.EvacuationInProgress.selector);
 
         // Вызываем функцию
+        vm.prank(owner);
         weValue.evacuateIfDepegged("0x", "0x", 0, 0, 0, 0);
     }
 
@@ -323,6 +325,7 @@ contract WeValueTest is Test {
         vm.expectEmit();
         emit WeValue.ProtectedAssetRotated(address(mockProtectedAsset), address(mockSafeAsset));
 
+        vm.prank(owner);
         weValue.evacuateIfDepegged("0x", "0x", 0, 0, 0, 0);
 
         // Проверяем, что активы ротированы
@@ -358,6 +361,7 @@ contract WeValueTest is Test {
         vm.expectEmit();
         emit WeValue.ProtectedAssetRotated(address(mockProtectedAsset), address(mockSafeAsset));
 
+        vm.prank(owner);
         weValue.evacuateIfDepegged("0x", "0x", flashLoanAmount, manipulationMinReturn, evacuationMinReturn, simpleSwapMinReturn);
 
         assertEq(mockProtectedAsset.balanceOf(address(weValue)), 0, "Protected asset balance should be 0 after evacuation");
@@ -391,6 +395,7 @@ contract WeValueTest is Test {
         // Ожидаем ошибку SwapFailed, так как не хватает средств для погашения
         vm.expectRevert(WeValue.SwapFailed.selector);
 
+        vm.prank(owner);
         weValue.evacuateIfDepegged("0x", "0x", flashLoanAmount, manipulationMinReturn, evacuationMinReturn, simpleSwapMinReturn);
 
         assertEq(mockProtectedAsset.balanceOf(address(weValue)), initialProtectedAssetBalance, "Protected asset balance should be unchanged");
@@ -425,6 +430,7 @@ contract WeValueTest is Test {
         // Ожидаем ошибку SwapFailed, так как стратегия не была прибыльной
         vm.expectRevert(WeValue.SwapFailed.selector);
 
+        vm.prank(owner);
         weValue.evacuateIfDepegged("0x", "0x", flashLoanAmount, manipulationMinReturn, evacuationMinReturn, simpleSwapMinReturn);
 
         // Проверки (убеждаемся, что ничего не изменилось, так как транзакция откатилась)
