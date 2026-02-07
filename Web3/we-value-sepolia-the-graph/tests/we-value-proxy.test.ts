@@ -5,12 +5,12 @@ import {
   clearStore,
   beforeAll,
   afterAll
-} from "matchstick-as/assembly/index"
+} from "matchstick-as"
 import { Address } from "@graphprotocol/graph-ts"
 import { Upgraded } from "../generated/schema"
-import { Upgraded as UpgradedEvent } from "../generated/ERC1967Proxy/ERC1967Proxy"
-import { handleUpgraded } from "../src/erc-1967-proxy"
-import { createUpgradedEvent } from "./erc-1967-proxy-utils"
+import { Upgraded as UpgradedEvent } from "../generated/WeValueProxy/WeValueProxy"
+import { handleUpgraded } from "../src/we-value-proxy"
+import { createUpgradedEvent } from "./we-value-proxy-utils"
 
 // Tests structure (matchstick-as >=0.5.0)
 // https://thegraph.com/docs/en/subgraphs/developing/creating/unit-testing-framework/#tests-structure
