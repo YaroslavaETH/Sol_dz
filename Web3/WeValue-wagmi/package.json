@@ -10,6 +10,7 @@
   "dependencies": {
     "@rainbow-me/rainbowkit": "^2.2.10",
     "@tanstack/react-query": "latest",
+    "bootstrap": "^5.3.8",
     "react": "latest",
     "react-dom": "latest",
     "viem": "latest",
