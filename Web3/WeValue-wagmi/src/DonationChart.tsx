@@ -1,11 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {Chart} from 'chart.js/auto';
-import { Donation } from '../we-value-sepolia-the-graph/generated/schema.ts'; // путь к сгенерированным типам
+// import { Donation } from '../we-value-sepolia-the-graph/generated/schema.ts'; // путь к сгенерированным типам
 import { formatEther } from 'viem';
 
 const DonationChart = () => {
-  const [donations, setDonations] = useState<Donation[]>([]);
+  const [donations, setDonations] = useState<[]>([]);
   const chartRef = useRef<Chart | null>(null);
 
   // Получаем данные из The Graph
@@ -113,7 +113,9 @@ const DonationChart = () => {
   return (
     <div className="donation-chart">
       <h2>График пожертвований</h2>
-      <canvas id="donationChart" width="400" height="200"></canvas>
+      <div>
+        <canvas id="donationChart"></canvas>
+        </div>
     </div>
   );
 };
