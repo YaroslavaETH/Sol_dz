@@ -8,11 +8,16 @@ optimizer = true
 solc_version = "0.8.27"
 via_ir = true
 remappings = [
-    '@openzeppelin/=node_modules/@openzeppelin/',
-    '@chainlink/=node_modules/@chainlink/',
-    '@aave/=node_modules/@aave/',
-    'forge-std/=lib/forge-std/src/'
+    "@openzeppelin/=node_modules/@openzeppelin/",
+    "@chainlink/=node_modules/@chainlink/",
+    "@aave/=node_modules/@aave/",
+    "forge-std/=lib/forge-std/src/",
+    "@uniswap/v4-core/=lib/v4-core/",
+    "@uniswap/v4-periphery/=lib/v4-periphery/",
+    "@uniswap/permit2/=lib/permit2/",
+    "@uniswap/universal-router/=lib/universal-router/"
 ]
+
 
 [rpc_endpoints]
 mainnet = "${MAINNET_RPC_URL}"
