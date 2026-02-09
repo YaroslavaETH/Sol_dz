@@ -7,6 +7,7 @@ import { WagmiProvider } from 'wagmi'
 import App from './App.tsx'
 import { config } from './wagmi.ts'
 
+import 'bootstrap/dist/css/bootstrap.min.css'
 import './index.css'
 
 const queryClient = new QueryClient()

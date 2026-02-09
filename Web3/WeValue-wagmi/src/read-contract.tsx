@@ -34,18 +34,19 @@ export function ContractInfo() {
   });
 
   const [name, decimals, totalSupply, protectedAsset] = publicData?.map(item => item.result) ?? [];
-
-  if (isLoading) return <div>Загрузка информации о контракте...</div>;
+  
+  if (isLoading) return <div className="alert alert-info">Загрузка информации о контракте...</div>;
   if (isError) {
-    return <div>Ошибка загрузки данных: {(error as BaseError).shortMessage || error.message}</div>
+    return <div className="alert alert-danger">Ошибка загрузки данных: {(error as BaseError).shortMessage || error.message}</div>
   }
 
   return (
-    <>
-      <div>Общий баланс всех пользователей: {totalSupply !== undefined && decimals !== undefined ? formatUnits(totalSupply, decimals) : 'N/A'} {name}</div>
-      <br />
+    <div className="mb-3">
+      <div className="alert alert-success">
+        <strong>Общий баланс всех пользователей:</strong> {totalSupply !== undefined && decimals !== undefined ? formatUnits(totalSupply, decimals) : 'N/A'} {name}
+      </div>
       <ReadContractProtectedAsset address={protectedAsset} />
-    </>
+    </div>
   )
 }
 
@@ -63,17 +64,19 @@ export function UserTokenBalance({ address }: ReadContractProps) {
     query: { enabled: !!address },
   });
 
-  if (isLoading) return <div>Загрузка вашего баланса...</div>;
+  if (isLoading) return <div className="alert alert-info">Загрузка вашего баланса...</div>;
   if (isError) {
-    return <div>Ошибка загрузки баланса: {(error as BaseError).shortMessage || error.message}</div>
+    return <div className="alert alert-danger">Ошибка загрузки баланса: {(error as BaseError).shortMessage || error.message}</div>
   }
 
   const [balance, name, decimals] = data?.map(item => item.result) ?? [];
 
   return (
-    <div>
-      <h2>Созданная Вами ценность</h2>
-      <div>Ваш баланс: {balance !== undefined && decimals !== undefined ? formatUnits(balance, decimals) : '0'} {name}</div>
+    <div className="mt-3">
+      <h3 className="mb-3">Созданная Вами ценность</h3>
+      <div className="alert alert-primary">
+        <strong>Ваш баланс:</strong> {balance !== undefined && decimals !== undefined ? formatUnits(balance, decimals) : '0'} {name}
+      </div>
     </div>
   );
 }
@@ -81,7 +84,7 @@ export function UserTokenBalance({ address }: ReadContractProps) {
 function ReadContractProtectedAsset({ address }: ReadContractProps) {
   // Если адрес еще не загружен, ничего не рендерим
   if (!address) {
-    return <div>Загрузка информации о защищенном активе...</div>;
+    return <div className="alert alert-info">Загрузка информации о защищенном активе...</div>;
   }
 
   const { data: publicData, isLoading, isError, error } = useReadContracts({
@@ -105,29 +108,33 @@ function ReadContractProtectedAsset({ address }: ReadContractProps) {
     ],
   });
 
-  if (isLoading) return <div>Загрузка баланса защищенного актива...</div>;
+  if (isLoading) return <div className="alert alert-info">Загрузка баланса защищенного актива...</div>;
   if (isError) {
-    return <div>Ошибка загрузки баланса фонда: {(error as BaseError).shortMessage || error.message}</div>
+    return <div className="alert alert-danger">Ошибка загрузки баланса фонда: {(error as BaseError).shortMessage || error.message}</div>
   }
     
   const [name, decimals, balance] = publicData?.map(item => item.result) ?? [];
 
   return (
-    <div>Баланс фонда: {balance !== undefined && decimals !== undefined ? formatUnits(balance, decimals) : 'N/A'} {name} </div>
+    <div className="alert alert-info">
+      <strong>Баланс фонда:</strong> {balance !== undefined && decimals !== undefined ? formatUnits(balance, decimals) : 'N/A'} {name}
+    </div>
   )  
 }
 
 export function CurrentPriceGaz({ chain }: { chain?: { nativeCurrency?: { decimals: number; symbol: string } } }){
   const { data, isLoading, isError } = useGasPrice();
-   if (isLoading) return <div>Загрузка цены на газ...</div>;
-   if (isError) return <div>Ошибка загрузки цены на газ</div>;
+   if (isLoading) return <div className="alert alert-info">Загрузка цены на газ...</div>;
+   if (isError) return <div className="alert alert-danger">Ошибка загрузки цены на газ</div>;
    
    const gasPriceFormatted = data && chain?.nativeCurrency
      ? formatUnits(data, chain.nativeCurrency.decimals)
      : 'N/A';
  
    return (
-     <div>Текущая цена газа: {gasPriceFormatted} {chain?.nativeCurrency?.symbol}</div>
+     <div className="alert alert-secondary">
+       <strong>Текущая цена газа:</strong> {gasPriceFormatted} {chain?.nativeCurrency?.symbol}
+     </div>
    );
 }
 
@@ -138,10 +145,12 @@ export function BalanceWallet({ address }: ReadContractProps) {
     address: address
   });
 
-  if (isLoading) return <div>Загрузка баланса...</div>;
-  if (isError) return <div>Ошибка загрузки баланса</div>;
+  if (isLoading) return <div className="alert alert-info">Загрузка баланса...</div>;
+  if (isError) return <div className="alert alert-danger">Ошибка загрузки баланса</div>;
   return (
-    <div>Баланс кошелька: {data?.value && data?.decimals ? formatEther(data?.value, "gwei") : 'N/A'} gwei </div>
+    <div className="alert alert-secondary">
+      <strong>Баланс кошелька:</strong> {data?.value && data?.decimals ? formatEther(data?.value, "gwei") : 'N/A'} gwei
+    </div>
   )
 }
 
@@ -152,9 +161,11 @@ export function BalanceContract() {
     address: WeValueContractConfig.address
   });
 
-  if (isLoading) return <div>Загрузка баланса контракта...</div>;
-  if (isError) return <div>Ошибка загрузки баланса контракта</div>;
+  if (isLoading) return <div className="alert alert-info">Загрузка баланса контракта...</div>;
+  if (isError) return <div className="alert alert-danger">Ошибка загрузки баланса контракта</div>;
   return (
-    <div>Баланс контракта: {data?.value && data?.decimals ? formatEther(data?.value, "gwei") : 'N/A'} gwei </div>
+    <div className="alert alert-warning">
+      <strong>Баланс контракта:</strong> {data?.value && data?.decimals ? formatEther(data?.value, "gwei") : 'N/A'} gwei
+    </div>
   )
 }

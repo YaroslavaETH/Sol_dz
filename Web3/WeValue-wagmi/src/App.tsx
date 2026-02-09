@@ -1,54 +1,23 @@
-import {  useConnection } from 'wagmi'
-import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { ContractInfo, UserTokenBalance, CurrentPriceGaz, BalanceWallet, BalanceContract } from  './read-contract.tsx';
-import {DonationForm} from './write-contract.tsx';
-import DonationChart from './DonationChart.tsx';
-
+import { ConnectionSection } from './components/ConnectionSection';
+import { FundInfoSection } from './components/FundInfoSection';
+import { StatisticsSection } from './components/StatisticsSection';
 
 function App() {
-  const connection = useConnection()
-  // const { disconnect } = useDisconnect()
-
   return (
-    <>
-      <div>
-        <h2>Connection</h2>
-        <ConnectButton showBalance={true}/>
-        <div>
-          Статус: {connection.status}
-          <br />
-          Адреса: {JSON.stringify(connection.addresses)}
-          <br />
-          Текущий адрес: {JSON.stringify(connection.address)}
-          <br />
-          chainId: {connection.chainId}
-          <br />
-          <CurrentPriceGaz chain={connection.chain}/>
-          <br />
-          <BalanceWallet address={connection.address} />
-          {connection.isConnected && (
-            <div>
-              <h2>Помочь фонду</h2>
-              <DonationForm />
-            </div>
-          )}
+    <main className="container-xl container-md" data-bs-theme="dark">
+      <div className="row g-4">
+        <div className="col-12 col-lg-4">
+          <ConnectionSection />
+        </div>
+        <div className="col-12 col-lg-4">
+          <FundInfoSection />
+        </div>
+        <div className="col-12 col-lg-4">
+          <StatisticsSection />
         </div>
       </div>
-      <hr />
-      <div>
-        <h2>Информация по благотворительному фонду</h2>
-        <ContractInfo />
-        <br />
-        <BalanceContract />
-        {connection.isConnected && <UserTokenBalance address={connection.address} />}
-      </div>
-      <hr />
-      <div>
-        <h2>Статистика помощи фонду</h2>
-        <DonationChart />
-      </div>
-    </>
-  )
+    </main>
+  );
 }
 
-export default App
+export default App;
