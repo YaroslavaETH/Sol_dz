@@ -7,6 +7,7 @@ import {IV4Router} from "lib/universal-router/lib/v4-periphery/src/interfaces/IV
 import {IPool} from "src/interfaces/IPool.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {console} from "forge-std/Test.sol";
+import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 
 // import {IUniversalRouter} from "@uniswap/universal-router/contracts/interfaces/IUniversalRouter.sol";
 
@@ -153,5 +154,83 @@ contract MockUniswapRouter {
         if (tokenIn != address(0)) {
             MockERC20(tokenIn).burn(msg.sender, swapParams.amountIn);
         }
+    }
+}
+
+/// @dev Упрощенный мок контракта Permit2 для тестирования
+contract MockPermit2 {
+    // Структура для хранения разрешений
+    struct Allowance {
+        uint160 amount;
+        uint48 expiration;
+        uint48 nonce;
+    }
+
+    // Маппинг разрешений: owner => token => spender => allowance
+    mapping(address => mapping(address => mapping(address => Allowance))) public allowances;
+
+    /// @notice Устанавливает разрешение для spender тратить токены owner
+    /// @param token Адрес токена
+    /// @param spender Адрес кому разрешено тратить
+    /// @param amount Количество разрешенных токенов
+    /// @param expiration Время истечения разрешения (unix timestamp)
+    function approve(address token, address spender, uint160 amount, uint48 expiration) external {
+        allowances[msg.sender][token][spender] = Allowance({
+            amount: amount,
+            expiration: expiration,
+            nonce: 0
+        });
+    }
+
+    /// @notice Переводит токены от from к to через Permit2
+    /// @dev Упрощенная версия для тестирования
+    /// @param from Адрес отправителя
+    /// @param to Адрес получателя
+    /// @param amount Количество токенов
+    /// @param token Адрес токена
+    function transferFrom(
+        address from,
+        address to,
+        uint160 amount,
+        address token
+    ) external {
+        Allowance storage allowed = allowances[from][token][msg.sender];
+        
+        require(allowed.amount >= amount, "Insufficient allowance");
+        require(allowed.expiration >= block.timestamp, "Allowance expired");
+        
+        // Уменьшаем разрешение
+        allowed.amount -= amount;
+        
+        // Выполняем перевод токенов
+        require(ERC20(token).transferFrom(from, to, amount), "Transfer failed");
+    }
+
+    /// @notice Получает информацию о разрешении
+    /// @param owner Владелец токенов
+    /// @param token Адрес токена
+    /// @param spender Адрес кому разрешено
+    function allowance(
+        address owner,
+        address token,
+        address spender
+    ) external view returns (uint160 amount, uint48 expiration, uint48 nonce) {
+        Allowance memory allowed = allowances[owner][token][spender];
+        return (allowed.amount, allowed.expiration, allowed.nonce);
+    }
+
+    /// @notice Проверяет, что разрешение валидно
+    /// @param owner Владелец токенов
+    /// @param token Адрес токена
+    /// @param spender Адрес кому разрешено
+    /// @param amount Требуемое количество
+    function checkAllowance(
+        address owner,
+        address token,
+        address spender,
+        uint160 amount
+    ) external view returns (bool) {
+        Allowance memory allowed = allowances[owner][token][spender];
+        return allowed.amount >= amount && allowed.expiration >= block.timestamp;
     }
 }

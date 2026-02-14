@@ -22,7 +22,8 @@ contract CreateCloneSepolia is Script {
     address private constant DAI_USD_ORACLE = 0x14866185B1962B63C3Ea9E03Bc1da838bab34C19;
     uint256 private constant DEPEG_THRESHOLD = 95_000_000;
     address private constant AAVE_POOL = 0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951;
-    address constant UNISWAP_4_ROUTER = 0x3A9D48AB9751398BbFa63ad67599Bb04e4BdF98b;
+    address private constant UNISWAP_4_ROUTER = 0x3A9D48AB9751398BbFa63ad67599Bb04e4BdF98b;
+    address private constant UNISWAP_4_PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
     function run() external {
         // Параметры для инициализации нового фонда
@@ -54,7 +55,8 @@ contract CreateCloneSepolia is Script {
             DAI_USD_ORACLE,
             DAI,
             DEPEG_THRESHOLD,
-            UNISWAP_4_ROUTER
+            UNISWAP_4_ROUTER,
+            UNISWAP_4_PERMIT2
         );
 
         vm.stopBroadcast();

@@ -16,6 +16,7 @@ import {Actions} from "@uniswap/v4-periphery/src/libraries/Actions.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
+import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 
 /**
  * @title Контракт благотворительного фонда WeValue
@@ -40,6 +41,8 @@ contract WeValue is
 
     uint256 public depegThreshold; /// @notice Порог цены для срабатывания защиты
     bool public evacuating; /// @dev Флаг для защиты от повторного входа (re-entrancy) в функцию эвакуации.
+
+    IPermit2 public permit2; /// @notice Адрес Permit2
 
     /// @notice Структура для хранения данных о выводе
     struct WithdrawalOperation {
@@ -111,8 +114,8 @@ contract WeValue is
     /// @dev Вызывается, если колбэк флеш-кредита вызван не пулом Aave или произошла другая ошибка, связанная с займом.
     error FlashloanFailed();
 
-    /// @dev Вызывается, если обмен на DEX не принес достаточно средств для погашения флеш-кредита и комиссии.
-    error SwapFailed();
+    /// @dev Вызывается, если обмен на DEX через кредит оказался не выгоднее простого обмена 
+    error EvacuationWithCreditFailed(uint256, uint256);
 
     /// @dev Вызывается при попытке конвертировать ETH, когда баланс равен нулю.
     error NoEthToConvert();
@@ -163,7 +166,8 @@ contract WeValue is
         address _safeAssetPriceOracle,
         address _safeAsset,
         uint256 _depegThreshold,
-        address _router
+        address _router,
+        address _permit2
     ) public virtual initializer {
         __WeValue_init(
             name,
@@ -175,7 +179,9 @@ contract WeValue is
             _safeAssetPriceOracle,
             _safeAsset,
             _depegThreshold,
-            _router        );
+            _router,
+            _permit2
+        );
     }
 
     /**
@@ -191,7 +197,8 @@ contract WeValue is
         address _safeAssetPriceOracle,
         address _safeAsset,
         uint256 _depegThreshold,
-        address _router
+        address _router,
+        address _permit2
     ) internal onlyInitializing {
 
         // Инициализация базовых контрактов OpenZeppelin.
@@ -208,6 +215,7 @@ contract WeValue is
         safeAsset = IERC20(_safeAsset);
         depegThreshold = _depegThreshold;
         router = IUniversalRouter(_router);
+        permit2 = IPermit2(_permit2);
     }
 
     /**
@@ -216,9 +224,11 @@ contract WeValue is
      * @param _router Адрес роутера Uniswap.
      */
     function initializeV2(
-        address _router
+        address _router,
+        address _permit2
     ) public reinitializer(2) {
         router = IUniversalRouter(_router);
+        permit2 = IPermit2(_permit2);
     }
 
     /**
@@ -408,18 +418,13 @@ contract WeValue is
             totalProtectedAssetBalance,
             evacuationMinReturn
         );
-
-        // Проверяем прибыльность: стратегия с флеш-кредитом должна быть выгоднее простого обмена.
-        if (evacuatedAmount <= simpleSwapMinReturn) {
-            revert SwapFailed(); // Стратегия не была прибыльной
-        }
-
         // Рассчитываем сумму для погашения флеш-кредита с комиссией.
         uint256 amountToRepay = amount + premium;
-
-        // Главная проверка: убеждаемся, что вырученных средств достаточно для погашения долга.
-        if (evacuatedAmount < amountToRepay) {
-            revert SwapFailed();
+        
+        // Проверяем прибыльность: стратегия с флеш-кредитом должна быть выгоднее простого обмена.
+        uint256 winAmount = simpleSwapMinReturn + amountToRepay;
+        if (evacuatedAmount  <= winAmount) {
+            revert EvacuationWithCreditFailed(evacuatedAmount, winAmount); // Стратегия не была прибыльной
         }
 
         emit AssetsEvacuated(amountToEvacuate, evacuatedAmount);
@@ -445,9 +450,18 @@ contract WeValue is
         uint256 amountIn,
         uint256 minAmountOut
     ) internal returns (uint256 amountOut) {
-        // Если мы отдаем токен ERC20 (а не нативный ETH), одобряем его роутеру V4
+        // Если мы отдаем токен ERC20 (а не нативный ETH), одобряем его через Permit2
         if (tokenIn != address(0)) {
-            IERC20(tokenIn).approve(address(router), amountIn);
+            // Сначала approve для Permit2
+            IERC20(tokenIn).approve(address(permit2), amountIn);
+            
+            // Затем даем разрешение через Permit2 для UniversalRouter
+            permit2.approve(
+                tokenIn, 
+                address(router), 
+                uint160(amountIn), 
+                uint48(block.timestamp + 600) 
+            );
         }
 
         // Определяем PoolKey. Адреса должны быть отсортированы.
@@ -496,7 +510,7 @@ contract WeValue is
         // Учтем баланс выходного токена до обмена
         uint256 amountBefore = IERC20(tokenOut).balanceOf(address(this));
         // Execute the swap
-        uint256 deadline = block.timestamp + 20;
+        uint256 deadline = block.timestamp + 600;
         // Execute the swap
         if (tokenIn == address(0)) {
             // Если мы меняем ETH, нужно передать его в вызове
