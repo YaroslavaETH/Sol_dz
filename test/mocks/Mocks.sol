@@ -3,8 +3,12 @@ pragma solidity ^0.8.13;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol"; // This is OK because of remappings
 import {AggregatorV3Interface} from "src/interfaces/AggregatorV3Interface.sol";
-import {IOneInchRouter} from "src/interfaces/IOneInchRouter.sol";
+import {IV4Router} from "lib/universal-router/lib/v4-periphery/src/interfaces/IV4Router.sol";
 import {IPool} from "src/interfaces/IPool.sol";
+import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
+import {console} from "forge-std/Test.sol";
+
+// import {IUniversalRouter} from "@uniswap/universal-router/contracts/interfaces/IUniversalRouter.sol";
 
 /// @dev Минимальный интерфейс для WeValue, необходимый мокам для разрыва циклических зависимостей.
 interface IWeValue {
@@ -47,52 +51,29 @@ contract MockAggregatorV3 is AggregatorV3Interface {
     }
 
     // Неиспользуемые функции
-    function decimals() external pure returns (uint8) { return 8; }
-    function description() external pure returns (string memory) { return "Mock"; }
-    function version() external pure returns (uint256) { return 1; }
-    function getRoundData(uint80) external pure returns (uint80, int256, uint256, uint256, uint80) { revert("Not implemented"); }
-}
-
-// Мок роутера 1inch
-contract MockOneInchRouter is IOneInchRouter {
-    address public constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-    address public immutable PROTECTED_ASSET;
-    address public immutable SAFE_ASSET;
-
-    mapping(address => mapping(address => uint256)) public expectedSwapReturns;
-
-    constructor(address _protectedAsset, address _safeAsset) {
-        PROTECTED_ASSET = _protectedAsset;
-        SAFE_ASSET = _safeAsset;
+    function decimals() external pure returns (uint8) {
+        return 8;
     }
 
-    function setExpectedSwapReturn(address fromToken, address toToken, uint256 returnAmount) public {
-        expectedSwapReturns[fromToken][toToken] = returnAmount;
+    function description() external pure returns (string memory) {
+        return "Mock";
     }
 
-    function swap(
-        address fromToken,
-        address toToken,
-        uint256 amount,
-        uint256 minReturn,
-        bytes calldata data
-    ) external payable override returns (uint256 returnAmount) {
+    function version() external pure returns (uint256) {
+        return 1;
+    }
 
-        uint256 expected = expectedSwapReturns[fromToken][toToken];
-        if (expected == 0) expected = minReturn; // Поведение по умолчанию, если не задано
-
-        // Выпускаем возвращаемую сумму на адрес вызывающего (контракт WeValue)
-        MockERC20(toToken).mint(msg.sender, expected);
-        // Сжигаем сумму к обмену на адресе вызывающего (контракт WeValue)
-        if (fromToken != ETH_ADDRESS) { // Только для ERC20 токенов
-            MockERC20(fromToken).burn(msg.sender, amount);
-        }
-        return expected;
+    function getRoundData(
+        uint80
+    ) external pure returns (uint80, int256, uint256, uint256, uint80) {
+        revert("Not implemented");
     }
 }
 
 // Мок пула Aave
-contract MockAavePool is IPool { // forgefmt: disable-line
+contract MockAavePool is
+    IPool // forgefmt: disable-line
+{
     IWeValue public weValueContract;
     MockERC20 public safeAssetMock;
     uint256 public premium;
@@ -120,10 +101,57 @@ contract MockAavePool is IPool { // forgefmt: disable-line
         safeAssetMock.mint(receiverAddress, amount);
 
         // Вызываем executeOperation на контракте WeValue
-        weValueContract.executeOperation(asset, amount, premium, receiverAddress, params); 
+        weValueContract.executeOperation(
+            asset,
+            amount,
+            premium,
+            receiverAddress,
+            params
+        );
 
         // Имитируем погашение: сжигаем токены у получателя (WeValue)
         // Контракт WeValue должен был дать approve на `amount + premium`.
-        safeAssetMock.burn(receiverAddress, amount+premium);
+        safeAssetMock.burn(receiverAddress, amount + premium);
+    }
+}
+
+/// @dev Мок для роутера Uniswap V4 (IUniversalRouter)
+contract MockUniswapRouter {
+    mapping(address => mapping(address => uint256)) public expectedSwapReturns;
+
+    /// @dev Устанавливает ожидаемое количество токенов для возврата
+    function setExpectedSwapReturn(
+        address fromToken,
+        address toToken,
+        uint256 returnAmount
+    ) public {
+        expectedSwapReturns[fromToken][toToken] = returnAmount;
+    }
+
+    /// @dev Симулирует выполнение обмена. Принимает ETH и отправляет protectedAsset.
+    function execute(
+        bytes calldata,
+        bytes[] calldata inputs,
+        uint256
+    ) external payable {
+        (bytes memory actions, bytes[] memory params) = abi.decode(inputs[0], (bytes, bytes[]));
+        (IV4Router.ExactInputSingleParams memory swapParams) = abi.decode(params[0], (IV4Router.ExactInputSingleParams));
+
+        address tokenIn = Currency.unwrap(swapParams.poolKey.currency0);
+        address tokenOut = Currency.unwrap(swapParams.poolKey.currency1);
+        if (!swapParams.zeroForOne) {
+            (tokenIn, tokenOut) = (tokenOut, tokenIn);
+        }
+
+        if (tokenIn == address(0)) {
+            require(msg.value > 0, "MockUniswapRouter: ETH not received");
+        }
+
+        // Отправляем вызывающему ожидаемое количество токенов
+        MockERC20(tokenOut).mint(msg.sender, expectedSwapReturns[tokenIn][tokenOut]);
+        // Сжигаем исходные токены, если это не нативный ETH
+        if (tokenIn != address(0)) {
+            MockERC20(tokenIn).burn(msg.sender, swapParams.amountIn);
+        }
     }
 }

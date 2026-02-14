@@ -20,13 +20,11 @@ contract DeployWeValueSepolia is Script {
 
         // Адреса контрактов в сети Sepolia
         // ВНИМАНИЕ: Некоторые адреса являются заглушками, т.к. реальных аналогов в Sepolia нет.
-        address aavePool = address(0); // Aave V3 Pool е развернут в Sepolia
-        address oneInchRouter = address(0); // ЗАГЛУШКА: 1inch не развернут в Sepolia
+        address aavePool = 0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951; // Aave V3 Pool в Sepolia
         address usdc = 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238; // USDC (Protected Asset)
         address dai = 0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357;  // DAI (Safe Asset)
         address usdcUsdOracle = 0xA2F78ab2355fe2f984D808B5CeE7FD0A93D5270E; // Chainlink USDC/USD
         address daiUsdOracle = 0x14866185B1962B63C3Ea9E03Bc1da838bab34C19;  // Chainlink DAI/USD
-        address trustedForwarder = deployerAddress; // Для примера используем адрес деплоера
 
         // Порог отвязки, например, $0.95 с 8 знаками после запятой
         uint256 depegThreshold = 95_000_000;
@@ -43,9 +41,7 @@ contract DeployWeValueSepolia is Script {
         bytes memory initData = abi.encodeWithSelector(
             WeValue.initialize.selector,
             deployerAddress, 
-            trustedForwarder,
             aavePool,
-            oneInchRouter,
             usdcUsdOracle,
             usdc,
             daiUsdOracle,

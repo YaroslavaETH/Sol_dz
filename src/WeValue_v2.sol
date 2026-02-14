@@ -8,8 +8,14 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPool} from "src/interfaces/IPool.sol";
-import {IOneInchRouter} from "src/interfaces/IOneInchRouter.sol";
 import {AggregatorV3Interface} from "src/interfaces/AggregatorV3Interface.sol";
+import {IUniversalRouter} from "@uniswap/universal-router/contracts/interfaces/IUniversalRouter.sol";
+import {Commands} from "@uniswap/universal-router/contracts/libraries/Commands.sol";
+import {IV4Router} from "@uniswap/v4-periphery/src/interfaces/IV4Router.sol";
+import {Actions} from "@uniswap/v4-periphery/src/libraries/Actions.sol";
+import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
+import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
+import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 
 /**
  * @title Контракт благотворительного фонда WeValue
@@ -18,29 +24,55 @@ import {AggregatorV3Interface} from "src/interfaces/AggregatorV3Interface.sol";
  * Он поддерживает пожертвования, обновляемость (UUPS), мета-транзакции,
  * а также имеет механизм защиты активов от обесценивания стейблкоинов.
  */
-contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, OwnableUpgradeable {
-    /// @dev Специальный адрес, используемый 1inch для обозначения нативного ETH.
-    address private constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-
-    // --- Переменные для интеграции ---
-    IPool public aavePool;                 /// @notice Адрес пула Aave для флеш-кредитов.
-    IOneInchRouter public oneInchRouter;  /// @notice Адрес роутера 1inch для обмена токенов.
+contract WeValue is
+    Initializable,
+    ERC20PermitUpgradeable,
+    UUPSUpgradeable,
+    OwnableUpgradeable
+{
+    IPool public aavePool; /// @notice Адрес пула Aave для флеш-кредитов.
+    IUniversalRouter public router; /// @notice Интерфейс для обмена Uniswap v4
     AggregatorV3Interface public priceOracle; /// @notice Адрес оракула Chainlink для получения цены актива.
     AggregatorV3Interface public safeAssetPriceOracle; /// @notice Адрес оракула Chainlink для получения цены безопасного актива.
+
     IERC20 public protectedAsset; /// @notice Токен, в котором храним средства фонда (напр. USDC)
-    IERC20 public safeAsset;      /// @notice Токен, в который эвакуируемся (напр. DAI)
+    IERC20 public safeAsset; /// @notice Токен, в который эвакуируемся (напр. DAI)
 
-    // --- Параметры безопасности ---
     uint256 public depegThreshold; /// @notice Порог цены для срабатывания защиты
-    bool public evacuating;      /// @dev Флаг для защиты от повторного входа (re-entrancy) в функцию эвакуации.
+    bool public evacuating; /// @dev Флаг для защиты от повторного входа (re-entrancy) в функцию эвакуации.
 
-    // --- Основные переменные ---
-    /// @notice Адрес доверенного отправителя для мета-транзакций (GSN).
-    address private _trustedForwarder;
+    /// @notice Структура для хранения данных о выводе
+    struct WithdrawalOperation {
+        uint256 amount; // Сумма вывода
+        address recipient; // Получатель
+        uint256 timestamp; // Время создания
+        bytes32[] checks; // массив hash чеков
+    }
+
+    /// @notice Структура для хранения данных чека.
+    struct Check {
+        uint64 date; // Дата чека в формате YYYYMMDDHHSS
+        uint64 fn; // ФН (Фискальный накопитель) чека
+        uint32 fd; // ФД (Порядковый номер документа) чека
+        uint32 fpd; // ФПД (Фискальный признак документа) чека
+    }
+
+    /// @notice маппинг всех чеков
+    mapping(bytes32 hashCheck => Check check) public checks;
+
+    /// @notice маппинг все операций вывода
+    mapping(uint256 id => WithdrawalOperation) public withdrawalOperations;
+
+    /// @notice Список ID неподтверждённых операций
+    uint256[] public unconfirmedOperations;
+
+    /// @notice Индекс для быстрого поиска позиции ID в массиве unconfirmedOperations. mapping(id операции => index в массиве unconfirmedOperations)
+    mapping(uint256 => uint256) private unconfirmedOperationIndex;
+
+    /// @notice Счетчик выводов
+    uint256 public withdrawalCount;
 
     // --- События ---
-    /// @notice Событие, возникающее при изменении адреса доверенного отправителя.
-    event TrustedForwarderChanged(address indexed newTrustedForwarder);
 
     /// @notice Событие, возникающее при получении пожертвования.
     event Donation(address indexed account, uint256 indexed amount);
@@ -50,7 +82,7 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
 
     /// @notice Событие, возникающее после успешной эвакуации активов.
     event AssetsEvacuated(uint256 amountIn, uint256 amountOut);
-    
+
     /// @notice Событие, возникающее при изменении адреса безопасного актива.
     event SafeAssetChanged(address indexed newSafeAsset);
 
@@ -58,8 +90,14 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
     event EthConverted(uint256 ethAmount, uint256 protectedAssetAmount);
 
     /// @notice Событие, возникающее после ротации активов, когда safeAsset становится новым protectedAsset.
-    event ProtectedAssetRotated(address indexed oldProtectedAsset, address indexed newProtectedAsset);
-    
+    event ProtectedAssetRotated(
+        address indexed oldProtectedAsset,
+        address indexed newProtectedAsset
+    );
+
+    /// @notice Событие, возникающее при подтверждении операции вывода.
+    event WithdrawalConfirmed(uint256 indexed operationId);
+
     // --- Ошибки ---
     /// @dev Вызывается при попытке пожертвовать 0 ETH.
     error NullDonation(address account);
@@ -75,30 +113,69 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
 
     /// @dev Вызывается, если обмен на DEX не принес достаточно средств для погашения флеш-кредита и комиссии.
     error SwapFailed();
-    
+
     /// @dev Вызывается при попытке конвертировать ETH, когда баланс равен нулю.
     error NoEthToConvert();
-    
+
+    error WithdrawalProtectedAssetFailed();
+
+    /// @dev Вызывается при попытке подтвердить несуществующую операцию.
+    error OperationNotFound();
+
+    /// @dev Вызывается при попытке внести чек, который уже используется.
+    error CheckAlreadyUsed();
+
+    /// @dev Вызывается при попытке подтвердить операцию без единого чека.
+    error OperationHasNoChecks();
+
+    /// @dev Вызывается при попытке эвакуации, если не был установлен безопасный актив.
+    error NeedSetSafeAsset();
+
+    /// @dev Вызывается при попытке обмена, когда получили меньше чем хотели.
+    error InsufficientOutputAmount(uint256, uint256);
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     /**
      * @dev Инициализирует контракт после его развертывания через прокси.
      * Этот метод вызывается только один раз.
+     * @param name Имя токена.
+     * @param symbol Символ токена.
      * @param initialOwner Адрес начального владельца контракта.
-     * @param _trustedForwarderAddress Адрес доверенного отправителя.
+     * @param _aavePool Адрес пула Aave для флеш-кредитов.
+     * @param _priceOracle Адрес оракула Chainlink для `protectedAsset`.
+     * @param _protectedAsset Адрес токена `protectedAsset`.
+     * @param _safeAssetPriceOracle Адрес оракула Chainlink для `safeAsset`.
+     * @param _safeAsset Адрес токена `safeAsset`.
+     * @param _depegThreshold Порог отвязки цены для `protectedAsset`.
+     * @param _router Адрес роутера Uniswap.
      */
     function initialize(
         string memory name,
         string memory symbol,
         address initialOwner,
-        address _trustedForwarderAddress,
         address _aavePool,
-        address _oneInchRouter,
         address _priceOracle,
         address _protectedAsset,
         address _safeAssetPriceOracle,
         address _safeAsset,
-        uint256 _depegThreshold
+        uint256 _depegThreshold,
+        address _router
     ) public virtual initializer {
-        __WeValue_init(name, symbol, initialOwner, _trustedForwarderAddress, _aavePool, _oneInchRouter, _priceOracle, _protectedAsset, _safeAssetPriceOracle, _safeAsset, _depegThreshold);
+        __WeValue_init(
+            name,
+            symbol,
+            initialOwner,
+            _aavePool,
+            _priceOracle,
+            _protectedAsset,
+            _safeAssetPriceOracle,
+            _safeAsset,
+            _depegThreshold,
+            _router        );
     }
 
     /**
@@ -108,18 +185,14 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
         string memory name,
         string memory symbol,
         address initialOwner,
-        address _trustedForwarderAddress,
         address _aavePool,
-        address _oneInchRouter,
         address _priceOracle,
         address _protectedAsset,
         address _safeAssetPriceOracle,
         address _safeAsset,
-        uint256 _depegThreshold
+        uint256 _depegThreshold,
+        address _router
     ) internal onlyInitializing {
-        // Сначала устанавливаем _trustedForwarder, так как от него зависит _msgSender,
-        // который используется в инициализаторах родительских контрактов.
-        _setTrustedForwarder(_trustedForwarderAddress);
 
         // Инициализация базовых контрактов OpenZeppelin.
         __ERC20_init(name, symbol);
@@ -129,76 +202,47 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
 
         // Установка параметров для механизма защиты
         aavePool = IPool(_aavePool);
-        oneInchRouter = IOneInchRouter(_oneInchRouter);
         priceOracle = AggregatorV3Interface(_priceOracle);
         protectedAsset = IERC20(_protectedAsset);
         safeAssetPriceOracle = AggregatorV3Interface(_safeAssetPriceOracle);
         safeAsset = IERC20(_safeAsset);
         depegThreshold = _depegThreshold;
-
+        router = IUniversalRouter(_router);
     }
-   
+
+    /**
+     * @dev Функция инициализации новых параметров второй версии
+     * Вызывается при обновлении контракта для установки адресов, связанных с Uniswap.
+     * @param _router Адрес роутера Uniswap.
+     */
+    function initializeV2(
+        address _router
+    ) public reinitializer(2) {
+        router = IUniversalRouter(_router);
+    }
+
     /**
      * @dev Функция, вызываемая при попытке обновления контракта UUPS.
      * Только владелец контракта может авторизовать обновление.
      * @param newImplementation Адрес новой реализации контракта.
      */
-    function _authorizeUpgrade(address newImplementation)
-        internal
-        override
-        onlyOwner
-    {}
-
-    /**
-     * @notice Принимает пожертвования в ETH и выпускает токены WEVALUE в соотношении 1:1.
-     */
-    function donation() external payable virtual {
-        if (msg.value == 0) {
-            revert NullDonation(_msgSender());
-        }
-        
-        // Выпускаем токены благотворителю, курс 1 к 1.
-        _mint(_msgSender(), msg.value);
-        emit Donation(_msgSender(), msg.value);
-    }
-    
-    /**
-     * @notice Конвертирует весь ETH баланс контракта в protectedAsset.
-     * @dev Доступна только владельцу. Требует данные для обмена от 1inch API.
-     * @param data Данные для обмена, полученный от 1inch API.
-     * @param minReturn Минимальное количество protectedAsset, которое мы ожидаем получить.
-     */
-    function convertEthToProtectedAsset(bytes calldata data, uint256 minReturn) external onlyOwner {
-        uint256 ethBalance = address(this).balance;
-        if (ethBalance == 0) {
-            revert NoEthToConvert();
-        }
-
-        // Вызываем 1inch для обмена ETH на protectedAsset
-        uint256 receivedAmount = oneInchRouter.swap{value: ethBalance}(
-            ETH_ADDRESS,
-            address(protectedAsset), // Целевой токен
-            ethBalance,
-            minReturn,
-            data
-        );
-
-        emit EthConverted(ethBalance, receivedAmount);
-    }
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal virtual override onlyOwner {}
 
     /**
      * @notice Позволяет контракту принимать прямые переводы ETH.
      */
     receive() external payable {}
-    
+
     /**
      * @dev Возвращает текущую версию контракта.
      * @return string memory Строка с номером версии.
      */
-    function version()  external pure virtual returns (string memory) {
-        return "0.2";   
+    function version() external pure virtual returns (string memory) {
+        return "0.2";
     }
-    
+
     /**
      * @notice Позволяет `spender` перевести `value` токенов от имени `owner`, используя подпись.
      * @dev Эта функция объединяет `permit` и `transferFrom` для удобства.
@@ -208,35 +252,19 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
      * @param deadline Срок действия подписи.
      * @return bool true, если перевод прошел успешно.
      */
-    function transferWithPermit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external returns (bool) {
+    function transferWithPermit(
+        address owner,
+        address spender,
+        uint256 value,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external returns (bool) {
         permit(owner, spender, value, deadline, v, r, s);
         // После успешного permit, spender (вызывающий эту функцию) имеет allowance.
         // Теперь он может перевести токены от имени owner на свой адрес.
         return transferFrom(owner, spender, value);
-    }
-
-    /**
-     * @dev Проверяет, является ли адрес доверенным отправителем.
-     * @param forwarder Адрес для проверки.
-     * @return bool true, если адрес является доверенным отправителем.
-     */
-    function isTrustedForwarder(address forwarder) public view returns (bool) {
-        return forwarder == _trustedForwarder;
-    }
-
-    /**
-     * @dev Возвращает адрес текущего доверенного отправителя.
-     */
-    function trustedForwarder() external view returns (address) {
-        return _trustedForwarder;
-    }
-
-    /**
-     * @dev Позволяет владельцу изменить адрес доверенного отправителя.
-     * @param newTrustedForwarder Адрес нового доверенного отправителя.
-     */
-    function setTrustedForwarder(address newTrustedForwarder) public virtual onlyOwner {
-        _setTrustedForwarder(newTrustedForwarder);
     }
 
     /**
@@ -249,30 +277,6 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
         emit SafeAssetChanged(newSafeAsset);
     }
 
-    /**
-     * @dev Внутренняя функция для установки нового доверенного отправителя. Генерирует событие.
-     * @param newTrustedForwarder Адрес нового доверенного отправителя.
-     */
-    function _setTrustedForwarder(address newTrustedForwarder) internal {
-        _trustedForwarder = newTrustedForwarder;
-        emit TrustedForwarderChanged(newTrustedForwarder);
-    }
-
-    /**
-     * @dev Переопределение _msgSender для поддержки мета-транзакций.
-     * Эта функция гарантирует, что все вызовы `_msgSender()` (например, в `OwnableUpgradeable`)
-     * будут возвращать адрес исходного пользователя, а не адрес доверенного форвардера.
-     */
-    function _msgSender() internal view virtual override returns (address sender) {
-        if (isTrustedForwarder(msg.sender)) {
-            assembly {
-                sender := shr(96, calldataload(sub(calldatasize(), 20)))
-            }
-        } else {
-            return msg.sender;
-        }
-    }
-    
     /**
      * @dev Внутренняя функция для сменя токена, в котором храним средства фонда на защищенный.
      * Должна вызываться строго после успешной эвакуации.
@@ -287,24 +291,24 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
 
     /**
      * @notice Запускает эвакуацию активов, если цена защищаемого токена упала ниже порога.
-     * @dev Может быть вызвана кем угодно, но требует данные для обмена от 1inch API.
-     * @param manipulationData Данные для манипулятивного обмена (safeAsset -> protectedAsset).
-     * @param evacuationData Данные для основного обмена (protectedAsset -> safeAsset).
+     * @dev Только для владельца.
+     * @param evacuationMinReturn Минимальное количество safeAsset, ожидаемое от основного обмена.
      * @param flashLoanAmount Сумма safeAsset, которую нужно занять для манипуляции.
      * @param manipulationMinReturn Минимальное количество protectedAsset, ожидаемое от манипулятивного обмена.
-     * @param evacuationMinReturn Минимальное количество safeAsset, ожидаемое от основного обмена.
      * @param simpleSwapMinReturn Ожидаемый результат от простого обмена (для проверки прибыльности).
      */
     function evacuateIfDepegged(
-        bytes calldata manipulationData,
-        bytes calldata evacuationData,
+        uint256 evacuationMinReturn,
         uint256 flashLoanAmount,
         uint256 manipulationMinReturn,
-        uint256 evacuationMinReturn,
         uint256 simpleSwapMinReturn
     ) external onlyOwner {
         if (evacuating) {
             revert EvacuationInProgress();
+        }
+
+        if(protectedAsset == safeAsset || address(safeAsset) == address(0)){
+            revert NeedSetSafeAsset();
         }
 
         // Проверяем цену защищаемого актива через оракул.
@@ -320,34 +324,41 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
         evacuating = true;
 
         // Если на балансе есть защищаемый актив, начинаем процесс эвакуации.
-        uint256 amountToEvacuate = protectedAsset.balanceOf(address(this));
+        uint128 amountToEvacuate = uint128(protectedAsset.balanceOf(address(this)));
         if (amountToEvacuate > 0) {
-            if(flashLoanAmount > 0){
-            // Вариант 1: Флеш-кредит для манипуляции ценой
-            // Кодируем параметры для передачи в колбэк флеш-кредита.
-            bytes memory params = abi.encode(amountToEvacuate, manipulationData, evacuationData, manipulationMinReturn, evacuationMinReturn, simpleSwapMinReturn);
-            aavePool.flashLoanSimple(
-                address(this),
-                address(safeAsset),
-                flashLoanAmount,
-                params,
-                0
-            );
+            if (flashLoanAmount > 0) {
+                // Вариант 1: Флеш-кредит для манипуляции ценой
+                // Кодируем параметры для передачи в колбэк флеш-кредита.
+                bytes memory params = abi.encode(
+                    amountToEvacuate,
+                    manipulationMinReturn,
+                    evacuationMinReturn,
+                    simpleSwapMinReturn
+                );
+                aavePool.flashLoanSimple(
+                    address(this),
+                    address(safeAsset),
+                    flashLoanAmount,
+                    params,
+                    0
+                );
+                return;
             } else {
-            // Вариант 2: Простой обмен без флеш-кредита
-            protectedAsset.approve(address(oneInchRouter), amountToEvacuate);
-            uint256 evacuatedAmount = oneInchRouter.swap(address(protectedAsset), address(safeAsset), amountToEvacuate, simpleSwapMinReturn, evacuationData);
-            emit AssetsEvacuated(amountToEvacuate, evacuatedAmount);
-            
-            // Ротируем активы и сбрасываем флаг
-            _rotateAsset();
-            evacuating = false;
+                // Вариант 2: Простой обмен без флеш-кредита
+                uint256 evacuatedAmount = _swapV4(
+                    address(protectedAsset),
+                    address(safeAsset),
+                    amountToEvacuate,
+                    evacuationMinReturn
+                );
+
+                emit AssetsEvacuated(amountToEvacuate, evacuatedAmount);
             }
-        } else {
-            // Вариант 3: Нет активов для эвакуации, просто ротируем и сбрасываем флаг
-            _rotateAsset();
-            evacuating = false;
         }
+        // Произошел простой обмен или не было токенов для эвакуации и нужно просто сменить актив.
+        // Ротируем активы и сбрасываем флаг
+        _rotateAsset();
+        evacuating = false;
     }
 
     /**
@@ -367,30 +378,35 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
         }
 
         // Декодируем параметры, переданные из основной функции.
-        (uint256 amountToEvacuate, bytes memory manipulationData, bytes memory evacuationData, uint256 manipulationMinReturn, uint256 evacuationMinReturn, uint256 simpleSwapMinReturn) = abi.decode(params, (uint256, bytes, bytes, uint256, uint256, uint256));
+        (
+            uint256 amountToEvacuate,
+            uint256 manipulationMinReturn,
+            uint256 evacuationMinReturn,
+            uint256 simpleSwapMinReturn
+        ) = abi.decode(
+                params,
+                (uint256, uint256, uint256, uint256)
+            );
 
         // Манипулятивный обмен: продаем заемный safeAsset, чтобы купить protectedAsset.
-        // Даем разрешение роутеру 1inch потратить заемные средства.
-        IERC20(asset).approve(address(oneInchRouter), amount);
-        oneInchRouter.swap(
+        _swapV4(
             asset,
             address(protectedAsset), // Целевой токен
-            amount,
-            manipulationMinReturn,
-            manipulationData
+            uint128(amount),
+            manipulationMinReturn
         );
 
         // Основной обмен: продаем все protectedAsset по новой, более высокой цене.
         // Баланс включает как исходные активы, так и купленные на предыдущем шаге.
-        uint256 totalProtectedAssetBalance = protectedAsset.balanceOf(address(this));
-        // Даем разрешение роутеру 1inch на обмен.
-        protectedAsset.approve(address(oneInchRouter), totalProtectedAssetBalance);
-        uint256 evacuatedAmount = oneInchRouter.swap(
+        uint256 totalProtectedAssetBalance = protectedAsset.balanceOf(
+            address(this)
+        );
+
+        uint256 evacuatedAmount = _swapV4(
             address(protectedAsset),
             address(safeAsset), // Целевой токен
             totalProtectedAssetBalance,
-            evacuationMinReturn,
-            evacuationData
+            evacuationMinReturn
         );
 
         // Проверяем прибыльность: стратегия с флеш-кредитом должна быть выгоднее простого обмена.
@@ -405,7 +421,7 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
         if (evacuatedAmount < amountToRepay) {
             revert SwapFailed();
         }
-        
+
         emit AssetsEvacuated(amountToEvacuate, evacuatedAmount);
 
         // Даем разрешение пулу Aave забрать сумму долга.
@@ -414,6 +430,278 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
         evacuating = false;
 
         return true;
+    }
+    /**
+     * @notice Обменивает один токен на другой через Uniswap V4.
+     * @param tokenIn Адрес токена, который отдаем. Используйте address(weth) для ETH.
+     * @param tokenOut Адрес токена, который получаем.
+     * @param amountIn Количество токена, которое отдаем.
+     * @param minAmountOut Минимальное количество токена, которое ожидаем получить.
+     * @return amountOut Фактическое количество полученного токена.
+     */
+    function _swapV4(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 minAmountOut
+    ) internal returns (uint256 amountOut) {
+        // Если мы отдаем токен ERC20 (а не нативный ETH), одобряем его роутеру V4
+        if (tokenIn != address(0)) {
+            IERC20(tokenIn).approve(address(router), amountIn);
+        }
+
+        // Определяем PoolKey. Адреса должны быть отсортированы.
+        bool zeroForOne = tokenIn < tokenOut;
+        address token0 = zeroForOne ? tokenIn : tokenOut;
+        address token1 = zeroForOne ? tokenOut : tokenIn;
+
+        PoolKey memory key = PoolKey({
+            currency0: Currency.wrap(token0), // Токен с меньшим адресом
+            currency1: Currency.wrap(token1), // Токен с большим адресом
+            fee: 3000, // 0.3%
+            tickSpacing: 60,
+            hooks: IHooks(address(0)) // Без использования хуков
+        });
+
+        // Encode the Universal Router command
+        bytes memory commands = abi.encodePacked(uint8(Commands.V4_SWAP));
+        bytes[] memory inputs = new bytes[](1);
+
+        // Encode V4Router actions
+        bytes memory actions = abi.encodePacked(
+            uint8(Actions.SWAP_EXACT_IN_SINGLE),
+            uint8(Actions.SETTLE_ALL),
+            uint8(Actions.TAKE_ALL)
+        );
+
+        // Prepare parameters for each action
+        bytes[] memory params = new bytes[](3);
+        params[0] = abi.encode(
+            IV4Router.ExactInputSingleParams({
+                poolKey: key,
+                zeroForOne: zeroForOne,
+                amountIn: uint128(amountIn),
+                amountOutMinimum: uint128(minAmountOut),
+                hookData: bytes("")
+            })
+        );
+        // SETTLE_ALL: Pay the input token (tokenIn)
+        params[1] = abi.encode(Currency.wrap(tokenIn), uint128(amountIn));
+        // TAKE_ALL: Receive the output token (tokenOut)
+        params[2] = abi.encode(Currency.wrap(tokenOut), uint128(minAmountOut));
+
+        // Combine actions and params into inputs
+        inputs[0] = abi.encode(actions, params);
+
+        // Учтем баланс выходного токена до обмена
+        uint256 amountBefore = IERC20(tokenOut).balanceOf(address(this));
+        // Execute the swap
+        uint256 deadline = block.timestamp + 20;
+        // Execute the swap
+        if (tokenIn == address(0)) {
+            // Если мы меняем ETH, нужно передать его в вызове
+            router.execute{value: amountIn}(commands, inputs, deadline);
+        } else {
+            router.execute(commands, inputs, deadline);
+        }
+
+        // Verify and return the output amount
+        amountOut = IERC20(tokenOut).balanceOf(address(this)) - amountBefore;
+        if (amountOut < minAmountOut) {
+            revert InsufficientOutputAmount(amountOut, minAmountOut);     
+        }
+        return amountOut;
+    }
+
+    /**
+     * @notice Конвертирует весь ETH баланс контракта в protectedAsset.
+     * @dev Доступна только владельцу. Использует Uniswap V4 для обмена.
+     * @param minAmountOut Минимальное количество protectedAsset, которое мы ожидаем получить.
+     */
+    function convertEthToProtectedAsset(
+        uint256 minAmountOut
+    ) external onlyOwner {
+        uint256 ethBalance = address(this).balance;
+        if (ethBalance == 0) {
+            revert NoEthToConvert();
+        }
+
+        // Обмениваем ETH на protectedAsset через Uniswap V4
+        uint256 receivedAmount = _swapV4(
+            address(0),
+            address(protectedAsset),
+            ethBalance,
+            minAmountOut
+        );
+
+        emit EthConverted(ethBalance, receivedAmount);
+    }
+    
+    /**
+     * @notice Принимает пожертвования в ETH и выпускает токены WEVALUE в соотношении 1:1.
+     */
+    function donation() external payable virtual {
+        if (msg.value == 0) {
+            revert NullDonation(_msgSender());
+        }
+
+        // Выпускаем токены благотворителю, курс 1 к 1.
+        _mint(_msgSender(), msg.value);
+        emit Donation(_msgSender(), msg.value);
+    }
+    
+    /**
+     * @notice Возвращает количество неподтвержденных операций вывода.
+     * @return uint256 Количество операций.
+     */
+    function getUnconfirmedOperationsCount() external view returns (uint256) {
+        return unconfirmedOperations.length;
+    }
+
+    /**
+     * @notice Возвращает количество чеков для конкретной операции вывода.
+     * @param operationId ID операции вывода.
+     * @return uint256 Количество чеков.
+     */
+    function getWithdrawalChecksCount(
+        uint256 operationId
+    ) external view returns (uint256) {
+        return withdrawalOperations[operationId].checks.length;
+    }
+
+    /**
+     * @notice Возвращает хеш чека по индексу для конкретной операции вывода.
+     * @param operationId ID операции вывода.
+     * @param index Индекс чека в массиве.
+     * @return bytes32 Хеш чека.
+     */
+    function getWithdrawalCheckAtIndex(
+        uint256 operationId,
+        uint256 index
+    ) external view returns (bytes32) {
+        return withdrawalOperations[operationId].checks[index];
+    }
+
+    // Функция для вычисления уникального хеша чека
+    function getReceiptHash(
+        uint64 _fn,
+        uint32 _fd,
+        uint32 _fpd
+    ) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(_fn, _fd, _fpd));
+    }
+
+    /**
+     * @notice Создает запись о выводе средств и переводит защищенный актив получателю.
+     * @dev Только для владельца. Транзакция будет полностью отменена (reverted), если перевод токенов не удастся.
+     * Все изменения состояния (создание записи, обновление счетчиков) будут отменены вместе с транзакцией.
+     * @param recipient Адрес получателя средств.
+     * @param amount Сумма для вывода.
+     */
+    function withdrawalProtectedAsset(
+        address recipient,
+        uint256 amount
+    ) external onlyOwner {
+        // Обновляем состояние: создаем запись о выводе
+        uint256 id = ++withdrawalCount;
+        withdrawalOperations[id] = WithdrawalOperation({
+            amount: amount,
+            recipient: recipient,
+            timestamp: block.timestamp,
+            checks: new bytes32[](0)
+        });
+
+        // Добавляем ID в массив и сохраняем его индекс в маппинг
+        unconfirmedOperationIndex[id] = unconfirmedOperations.length;
+        unconfirmedOperations.push(id);
+
+        // Переводим токены
+        bool success = protectedAsset.transfer(recipient, amount);
+        if (!success) revert WithdrawalProtectedAssetFailed();
+    }
+
+    /**
+     * @notice Добавляет фискальный чек к существующей операции вывода.
+     * @dev Только для владельца. Можно добавить несколько чеков к одной операции.
+     * @param operationId ID операции, к которой добавляется чек.
+     * @param date Дата чека в формате YYYYMMDDHHSS.
+     * @param fn Номер фискального накопителя.
+     * @param fd Порядковый номер фискального документа.
+     * @param fpd Фискальный признак документа.
+     */
+    function addCheckToWithdrawal(
+        uint256 operationId,
+        uint64 date,
+        uint64 fn,
+        uint32 fd,
+        uint32 fpd
+    ) external onlyOwner {
+        // Проверяем, что такая операция существует в списке неподтвержденных.
+        // Индекс 0 валиден, но если ID нет в маппинге, он вернет 0.
+        // Поэтому дополнительно проверяем, что элемент на этом индексе действительно наш ID.
+        uint256 indexToRemove = unconfirmedOperationIndex[operationId];
+        if (
+            unconfirmedOperations.length == 0 ||
+            (indexToRemove == 0 && unconfirmedOperations[0] != operationId)
+        ) {
+            revert OperationNotFound();
+        }
+
+        // Вычисляем хеш чека
+        bytes32 hashCheck = getReceiptHash(fn, fd, fpd);
+        // Получаем указатель на место в хранилище для этого чека
+        Check storage newCheck = checks[hashCheck];
+
+        // Проверяем, что чек с таким хешем еще не был использован (поле fn будет 0)
+        if (newCheck.fn != 0) revert CheckAlreadyUsed();
+
+        newCheck.date = date;
+        newCheck.fn = fn;
+        newCheck.fd = fd;
+        newCheck.fpd = fpd;
+
+        // Добавляем хеш чека в массив операции
+        WithdrawalOperation storage operation = withdrawalOperations[
+            operationId
+        ];
+        operation.checks.push(hashCheck);
+    }
+
+    /**
+     * @notice Финализирует операцию вывода, удаляя ее ID из списка неподтвержденных.
+     * @dev Только для владельца. Требует, чтобы к операции был добавлен хотя бы один чек.
+     * Использует эффективный по газу алгоритм удаления из массива (O(1)).
+     * @param operationId ID операции для подтверждения.
+     */
+    function confirmWithdrawal(uint256 operationId) external onlyOwner {
+        // Проверяем, что такая операция существует в списке неподтвержденных.
+        uint256 indexToRemove = unconfirmedOperationIndex[operationId];
+        if (indexToRemove == 0 && unconfirmedOperations[0] != operationId) {
+            revert OperationNotFound();
+        }
+
+        // Проверяем, что к операции привязан хотя бы один чек.
+        if (withdrawalOperations[operationId].checks.length == 0) {
+            revert OperationHasNoChecks();
+        }
+
+        // Чтобы удалить элемент из середины массива, перемещаем последний элемент на его место и удаляем последний.
+        // Берем ID последнего элемента в массиве.
+        uint256 lastElementId = unconfirmedOperations[
+            unconfirmedOperations.length - 1
+        ];
+
+        // Перемещаем последний элемент на место удаляемого.
+        unconfirmedOperations[indexToRemove] = lastElementId;
+
+        // Обновляем индекс перемещенного элемента в маппинге.
+        unconfirmedOperationIndex[lastElementId] = indexToRemove;
+
+        //  Удаляем последний элемент из массива (теперь он дубликат).
+        unconfirmedOperations.pop();
+        delete unconfirmedOperationIndex[operationId];
+
+        emit WithdrawalConfirmed(operationId);
     }
 
 }

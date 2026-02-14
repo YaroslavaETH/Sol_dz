@@ -78,7 +78,12 @@ contract WeValue is Initializable, ERC20PermitUpgradeable, UUPSUpgradeable, Owna
     
     /// @dev Вызывается при попытке конвертировать ETH, когда баланс равен нулю.
     error NoEthToConvert();
-    
+   
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     /**
      * @dev Инициализирует контракт после его развертывания через прокси.
      * Этот метод вызывается только один раз.
