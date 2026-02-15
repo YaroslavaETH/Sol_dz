@@ -100,7 +100,7 @@ contract WeValue is
     );
 
     /// @notice Событие, возникающее при выводе средств
-    event WithdrawalProtectedAsset(uint256 indexed operationId, uint256 amount, address token, address recipient, bool offchain);
+    event WithdrawalProtectedAsset(uint256 indexed operationId, uint256 amount, address token, address recipient, bool offchain, string decription);
     
     /// @notice Событие, возникающее при подтверждении операции вывода.
     event WithdrawalConfirmed(uint256 indexed operationId);
@@ -618,11 +618,14 @@ contract WeValue is
      * Все изменения состояния (создание записи, обновление счетчиков) будут отменены вместе с транзакцией.
      * @param recipient Адрес получателя средств.
      * @param amount Сумма для вывода.
+     * @param offchain оффчейн или ончейн помощь. Для ончейн не требуется подтверждение чеком.
+     * @param decription описание на что выводятся средства.
      */
     function withdrawalProtectedAsset(
         address recipient,
         uint256 amount,
-        bool offchain
+        bool offchain,
+        string calldata decription
     ) external onlyOwner {
         // Обновляем состояние: создаем запись о выводе
         uint256 id = ++withdrawalCount;
@@ -637,7 +640,7 @@ contract WeValue is
         // Переводим токены
         bool success = protectedAsset.transfer(recipient, amount);
         if (!success) revert WithdrawalProtectedAssetFailed();
-        emit WithdrawalProtectedAsset(id, amount, address(protectedAsset), recipient, offchain);
+        emit WithdrawalProtectedAsset(id, amount, address(protectedAsset), recipient, offchain, decription);
         
         if(offchain){
             // Добавляем ID в массив и сохраняем его индекс в маппинг
