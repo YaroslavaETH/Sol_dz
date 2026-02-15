@@ -403,26 +403,35 @@ contract WeValueTest is Test {
         assertEq(address(weValue.priceOracle()), address(mockPriceOracle), "priceOracle should not be rotated");
     }
    /// @dev Тестирует успешный вывод средств.
-    function test_WithdrawalProtectedAsset_offchain_Success() public {
+    function test_WithdrawalProtectedAsset_Offchain_Success() public {
         uint256 initialContractBalance = 1000 ether; 
         mockProtectedAsset.mint(address(weValue), initialContractBalance);
 
         uint256 amountToWithdraw = 400 ether; 
         address recipient = bob;
+        string memory description = "Help zooclinic";
+
+        // Ожидаем событие вывода
+        vm.expectEmit();
+        emit WeValue.WithdrawalProtectedAsset(1, amountToWithdraw, address(mockProtectedAsset), recipient, true, description);
 
         // Вывод средств
         vm.prank(owner);
-        weValue.withdrawalProtectedAsset(recipient, amountToWithdraw, true);
+        // Указываем, что это off-chain операция
+        weValue.withdrawalProtectedAsset(recipient, amountToWithdraw, true, description);
 
         // Проверяем счетчики и списки
         assertEq(weValue.withdrawalCount(), 1, "Count of withdrawals should increase");
-        assertEq(weValue.unconfirmedOperations(0), 1, "ID operation should added to unconfirmedOperations");
+        // Проверяем, что операция добавлена в список неподтвержденных
+        assertEq(weValue.getUnconfirmedOperationsCount(), 1, "Unconfirmed operations count should be 1");
+        assertEq(weValue.unconfirmedOperations(0), 1, "Operation ID should be added to unconfirmedOperations");
 
         // Проверяем созданную запись
-        (uint256 amountRecord, address recipientRecord, , uint256 timestampRecord) = weValue.withdrawalOperations(1);
+        (uint256 amountRecord, address recipientRecord, bool offchainRecord, uint256 timestampRecord) = weValue.withdrawalOperations(1);
         assertEq(amountRecord, amountToWithdraw, "Amount in withdrawal record is incorrect");
         assertEq(recipientRecord, recipient, "Recipient in withdrawal record is incorrect");
-        assertEq(timestampRecord,  vm.getBlockTimestamp(), "Timestamp in withdrawal record is incorrect");
+        assertTrue(offchainRecord, "Offchain flag in withdrawal record should be true");
+        assertEq(timestampRecord, block.timestamp, "Timestamp in withdrawal record is incorrect");
 
         // Проверяем балансы токенов
         assertEq(mockProtectedAsset.balanceOf(address(weValue)), initialContractBalance - amountToWithdraw, "Balance of the contract should decrease");
@@ -436,7 +445,7 @@ contract WeValueTest is Test {
 
         // Алиса (не владелец) пытается вызвать функцию
         vm.prank(alice);
-        weValue.withdrawalProtectedAsset(bob, 100 ether, true);
+        weValue.withdrawalProtectedAsset(bob, 100 ether, true, "Attempt by Alice");
     }
 
     /// @dev Тестирует, что транзакция отменяется, если на балансе контракта недостаточно средств для перевода.
@@ -458,7 +467,7 @@ contract WeValueTest is Test {
             )
         );
         vm.prank(owner);
-        weValue.withdrawalProtectedAsset(bob, amountToWithdraw, true);
+        weValue.withdrawalProtectedAsset(bob, amountToWithdraw, true, "This should fail");
 
         // Проверяем что состояние не изменилось
         assertEq(weValue.withdrawalCount(), 0, "Count of withdrawals should not change");
@@ -474,7 +483,7 @@ contract WeValueTest is Test {
         mockProtectedAsset.mint(address(weValue), initialContractBalance);
 
         vm.prank(owner);
-        weValue.withdrawalProtectedAsset(bob, 400 ether, true);
+        weValue.withdrawalProtectedAsset(bob, 400 ether, true, "Withdrawal for check test");
         
         assertEq(weValue.getUnconfirmedOperationsCount(), 1, "There should be one unconfirmed operation");
         uint256 operationId = weValue.unconfirmedOperations(0);
@@ -489,6 +498,9 @@ contract WeValueTest is Test {
         uint32 fd = 78415;
         uint32 fpd = 3194281987;
 
+        // Ожидаем событие добавления чека
+        vm.expectEmit();
+        emit WeValue.AddCheckToWithdrawal(operationId, date, fn, fd, fpd);
         vm.prank(owner);
         weValue.addCheckToWithdrawal(operationId, date, fn, fd, fpd);
 
@@ -519,7 +531,7 @@ contract WeValueTest is Test {
         mockProtectedAsset.mint(address(weValue), initialContractBalance);
         // Создаем вывод и добавляем первый чек
         vm.prank(owner);
-        weValue.withdrawalProtectedAsset(bob, 400 ether, true);
+        weValue.withdrawalProtectedAsset(bob, 400 ether, true, "Withdrawal for second check test");
         uint256 operationId = 1;
         vm.prank(owner);
         weValue.addCheckToWithdrawal(operationId, 202401010000, 111, 1, 1);
@@ -559,9 +571,9 @@ contract WeValueTest is Test {
         mockProtectedAsset.mint(address(weValue), initialContractBalance);
         // Создаем две операции и используем чек в первой
         vm.prank(owner);
-        weValue.withdrawalProtectedAsset(bob, 100 ether, true); // opId = 1
+        weValue.withdrawalProtectedAsset(bob, 100 ether, true, "First withdrawal"); // opId = 1
         vm.prank(owner);
-        weValue.withdrawalProtectedAsset(alice, 200 ether, true); // opId = 2
+        weValue.withdrawalProtectedAsset(alice, 200 ether, true, "Second withdrawal"); // opId = 2
 
         uint64 date = 202401010000;
         uint64 fn = 111;
@@ -585,13 +597,14 @@ contract WeValueTest is Test {
         mockProtectedAsset.mint(address(weValue), initialContractBalance);
         // Создаем операцию вывода, но не добавляем чеков
         vm.prank(owner);
-        weValue.withdrawalProtectedAsset(bob, 100 ether, true);
+        weValue.withdrawalProtectedAsset(bob, 100 ether, true, "Withdrawal with no checks");
         uint256 operationId = 1;
 
         assertEq(weValue.getUnconfirmedOperationsCount(), 1, "Should have one unconfirmed operation");
 
         // Ожидаем ошибку OperationHasNoChecks
         vm.expectRevert(WeValue.OperationHasNoChecks.selector);
+
         vm.prank(owner);
         weValue.confirmWithdrawal(operationId);
 
