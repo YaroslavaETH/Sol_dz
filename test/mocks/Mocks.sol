@@ -135,7 +135,7 @@ contract MockUniswapRouter {
         bytes[] calldata inputs,
         uint256
     ) external payable {
-        (bytes memory actions, bytes[] memory params) = abi.decode(inputs[0], (bytes, bytes[]));
+        (, bytes[] memory params) = abi.decode(inputs[0], (bytes, bytes[]));
         (IV4Router.ExactInputSingleParams memory swapParams) = abi.decode(params[0], (IV4Router.ExactInputSingleParams));
 
         address tokenIn = Currency.unwrap(swapParams.poolKey.currency0);

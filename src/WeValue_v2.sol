@@ -48,6 +48,7 @@ contract WeValue is
     struct WithdrawalOperation {
         uint256 amount; // Сумма вывода
         address recipient; // Получатель
+        bool offchain; // true - дальнейшя оплата вне сети и требуется подтверждение чеками, false - recipient и есть конечный получатель
         uint256 timestamp; // Время создания
         bytes32[] checks; // массив hash чеков
     }
@@ -98,8 +99,14 @@ contract WeValue is
         address indexed newProtectedAsset
     );
 
+    /// @notice Событие, возникающее при выводе средств
+    event WithdrawalProtectedAsset(uint256 indexed operationId, uint256 amount, address token, address recipient, bool offchain);
+    
     /// @notice Событие, возникающее при подтверждении операции вывода.
     event WithdrawalConfirmed(uint256 indexed operationId);
+
+    /// @notice Событие, возникающее при добавлении чека.
+    event AddCheckToWithdrawal(uint256 indexed operationId, uint64 date, uint64 fn, uint32 fd, uint32 fpd);
 
     // --- Ошибки ---
     /// @dev Вызывается при попытке пожертвовать 0 ETH.
@@ -502,7 +509,7 @@ contract WeValue is
         // SETTLE_ALL: Pay the input token (tokenIn)
         params[1] = abi.encode(Currency.wrap(tokenIn), uint128(amountIn));
         // TAKE_ALL: Receive the output token (tokenOut)
-        params[2] = abi.encode(Currency.wrap(tokenOut), uint128(minAmountOut));
+        params[2] = abi.encode(Currency.wrap(tokenOut), uint128(0));
 
         // Combine actions and params into inputs
         inputs[0] = abi.encode(actions, params);
@@ -614,24 +621,33 @@ contract WeValue is
      */
     function withdrawalProtectedAsset(
         address recipient,
-        uint256 amount
+        uint256 amount,
+        bool offchain
     ) external onlyOwner {
         // Обновляем состояние: создаем запись о выводе
         uint256 id = ++withdrawalCount;
         withdrawalOperations[id] = WithdrawalOperation({
             amount: amount,
             recipient: recipient,
+            offchain: offchain, 
             timestamp: block.timestamp,
             checks: new bytes32[](0)
         });
 
-        // Добавляем ID в массив и сохраняем его индекс в маппинг
-        unconfirmedOperationIndex[id] = unconfirmedOperations.length;
-        unconfirmedOperations.push(id);
-
         // Переводим токены
         bool success = protectedAsset.transfer(recipient, amount);
         if (!success) revert WithdrawalProtectedAssetFailed();
+        emit WithdrawalProtectedAsset(id, amount, address(protectedAsset), recipient, offchain);
+        
+        if(offchain){
+            // Добавляем ID в массив и сохраняем его индекс в маппинг
+            unconfirmedOperationIndex[id] = unconfirmedOperations.length;
+            unconfirmedOperations.push(id);
+        }
+        else {
+            emit WithdrawalConfirmed(id);
+        }
+
     }
 
     /**
@@ -679,6 +695,7 @@ contract WeValue is
             operationId
         ];
         operation.checks.push(hashCheck);
+        emit AddCheckToWithdrawal(operationId, date, fn, fd, fpd);
     }
 
     /**

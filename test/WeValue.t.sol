@@ -403,7 +403,7 @@ contract WeValueTest is Test {
         assertEq(address(weValue.priceOracle()), address(mockPriceOracle), "priceOracle should not be rotated");
     }
    /// @dev Тестирует успешный вывод средств.
-    function test_WithdrawalProtectedAsset_Success() public {
+    function test_WithdrawalProtectedAsset_offchain_Success() public {
         uint256 initialContractBalance = 1000 ether; 
         mockProtectedAsset.mint(address(weValue), initialContractBalance);
 
@@ -412,14 +412,14 @@ contract WeValueTest is Test {
 
         // Вывод средств
         vm.prank(owner);
-        weValue.withdrawalProtectedAsset(recipient, amountToWithdraw);
+        weValue.withdrawalProtectedAsset(recipient, amountToWithdraw, true);
 
         // Проверяем счетчики и списки
         assertEq(weValue.withdrawalCount(), 1, "Count of withdrawals should increase");
         assertEq(weValue.unconfirmedOperations(0), 1, "ID operation should added to unconfirmedOperations");
 
         // Проверяем созданную запись
-        (uint256 amountRecord, address recipientRecord, uint256 timestampRecord) = weValue.withdrawalOperations(1);
+        (uint256 amountRecord, address recipientRecord, , uint256 timestampRecord) = weValue.withdrawalOperations(1);
         assertEq(amountRecord, amountToWithdraw, "Amount in withdrawal record is incorrect");
         assertEq(recipientRecord, recipient, "Recipient in withdrawal record is incorrect");
         assertEq(timestampRecord,  vm.getBlockTimestamp(), "Timestamp in withdrawal record is incorrect");
@@ -436,7 +436,7 @@ contract WeValueTest is Test {
 
         // Алиса (не владелец) пытается вызвать функцию
         vm.prank(alice);
-        weValue.withdrawalProtectedAsset(bob, 100 ether);
+        weValue.withdrawalProtectedAsset(bob, 100 ether, true);
     }
 
     /// @dev Тестирует, что транзакция отменяется, если на балансе контракта недостаточно средств для перевода.
@@ -458,7 +458,7 @@ contract WeValueTest is Test {
             )
         );
         vm.prank(owner);
-        weValue.withdrawalProtectedAsset(bob, amountToWithdraw);
+        weValue.withdrawalProtectedAsset(bob, amountToWithdraw, true);
 
         // Проверяем что состояние не изменилось
         assertEq(weValue.withdrawalCount(), 0, "Count of withdrawals should not change");
@@ -474,14 +474,14 @@ contract WeValueTest is Test {
         mockProtectedAsset.mint(address(weValue), initialContractBalance);
 
         vm.prank(owner);
-        weValue.withdrawalProtectedAsset(bob, 400 ether);
+        weValue.withdrawalProtectedAsset(bob, 400 ether, true);
         
         assertEq(weValue.getUnconfirmedOperationsCount(), 1, "There should be one unconfirmed operation");
         uint256 operationId = weValue.unconfirmedOperations(0);
         assertEq(operationId, 1, "Operation ID should be 1");
 
         // Сохраняем состояние операции до подтверждения
-        (uint256 amountBefore, address recipientBefore, uint256 timestampBefore) = weValue.withdrawalOperations(operationId);
+        (uint256 amountBefore, address recipientBefore, bool offchainBefore, uint256 timestampBefore) = weValue.withdrawalOperations(operationId);
 
         // Добавляем чек
         uint64 date = 202602072138;
@@ -502,9 +502,10 @@ contract WeValueTest is Test {
         assertEq(savedFpd, fpd, "Fpd in check record is incorrect");
 
         // Проверяем запись о выводе. Основные данные не изменились, но добавился хеш чека
-        (uint256 amount, address recipient, uint256 timestamp) = weValue.withdrawalOperations(operationId);
+        (uint256 amount, address recipient, bool offchain, uint256 timestamp) = weValue.withdrawalOperations(operationId);
         assertEq(amount, amountBefore, "Amount in check record should not change");
         assertEq(recipient, recipientBefore, "Recipient in check record should not change");
+        assertEq(offchain, offchainBefore, "Offchain in check record should not change");
         assertEq(timestamp, timestampBefore, "Timestamp in check record should not change");
         // Проверяем, что хэш чека добавился в массив операции
         assertEq(weValue.getWithdrawalChecksCount(operationId), 1, "Checks array should contain one element");
@@ -518,7 +519,7 @@ contract WeValueTest is Test {
         mockProtectedAsset.mint(address(weValue), initialContractBalance);
         // Создаем вывод и добавляем первый чек
         vm.prank(owner);
-        weValue.withdrawalProtectedAsset(bob, 400 ether);
+        weValue.withdrawalProtectedAsset(bob, 400 ether, true);
         uint256 operationId = 1;
         vm.prank(owner);
         weValue.addCheckToWithdrawal(operationId, 202401010000, 111, 1, 1);
@@ -558,9 +559,9 @@ contract WeValueTest is Test {
         mockProtectedAsset.mint(address(weValue), initialContractBalance);
         // Создаем две операции и используем чек в первой
         vm.prank(owner);
-        weValue.withdrawalProtectedAsset(bob, 100 ether); // opId = 1
+        weValue.withdrawalProtectedAsset(bob, 100 ether, true); // opId = 1
         vm.prank(owner);
-        weValue.withdrawalProtectedAsset(alice, 200 ether); // opId = 2
+        weValue.withdrawalProtectedAsset(alice, 200 ether, true); // opId = 2
 
         uint64 date = 202401010000;
         uint64 fn = 111;
@@ -584,7 +585,7 @@ contract WeValueTest is Test {
         mockProtectedAsset.mint(address(weValue), initialContractBalance);
         // Создаем операцию вывода, но не добавляем чеков
         vm.prank(owner);
-        weValue.withdrawalProtectedAsset(bob, 100 ether);
+        weValue.withdrawalProtectedAsset(bob, 100 ether, true);
         uint256 operationId = 1;
 
         assertEq(weValue.getUnconfirmedOperationsCount(), 1, "Should have one unconfirmed operation");
@@ -705,7 +706,7 @@ contract WeValueTest is Test {
         ERC1967Proxy proxy = new ERC1967Proxy(address(forkImplementation), initData);
         WeValue forkWeValue = WeValue(payable(address(proxy)));
 
-        uint256 usdcAmountToEvacuate = 1000 * 10**6; // 1,000 USDC (6 decimals)
+        uint256 usdcAmountToEvacuate = 1_000 * 10**6; // 1,000 USDC (6 decimals)
         // Используем cheatcode `deal` для зачисления токенов на баланс контракта в форке
         deal(usdc, address(forkWeValue), usdcAmountToEvacuate);
         assertEq(IERC20(usdc).balanceOf(address(forkWeValue)), usdcAmountToEvacuate, "Initial USDC balance is incorrect");
@@ -713,6 +714,7 @@ contract WeValueTest is Test {
         ( , int256 price, , , ) = AggregatorV3Interface(usdcUsdOracle).latestRoundData();
         console.log("Current USDC/USD Price (from Chainlink):", uint256(price));
         console.log("Depeg Threshold set in contract:", depegThreshold);
+        console.log("Before balance protectedAsset:", IERC20(usdc).balanceOf(address(forkWeValue)));
 
         // Проверяем события нестрого, так как Uniswap может генерировать свои
         vm.expectEmit(true, true, true, false); // Не проверяем amountOut, так как он заранее неизвестен
@@ -725,6 +727,7 @@ contract WeValueTest is Test {
         forkWeValue.evacuateIfDepegged(evacuationMinReturn, 0, 0, 0);
 
         assertEq(IERC20(usdc).balanceOf(address(forkWeValue)), 0, "USDC balance should be 0 after evacuation");
+        console.log("After balance protectedAsset:", IERC20(usdc).balanceOf(address(forkWeValue)));
 
         uint256 finalDaiBalance = IERC20(dai).balanceOf(address(forkWeValue));
         assertTrue(finalDaiBalance > 0, "DAI balance should be greater than 0 after evacuation");
