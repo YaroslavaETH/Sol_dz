@@ -751,6 +751,73 @@ contract WeValueTest is Test {
         assertFalse(forkWeValue.evacuating(), "Evacuating flag should be false after completion");
     }
 
+    /// @dev Тестирует успешную эвакуацию в форке mainnet. Вариант 2, простой обмен без флеш-кредита.
+    function test_EvacuateIfDepegged_Fork_SimpleSwap_wbtc_Success() public {
+        uint256 forkBlock = block.number;
+        if (forkBlock == 0) return;
+
+        // Адреса контрактов в Mainnet
+        address aavePool = 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2;
+        address usdc = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+        address wbtc = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+        address usdcUsdOracle = 0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6;
+        address wbtcUsdOracle = 0xfdFD9C85aD200c506Cf9e21F1FD8dd01932FBB23;
+        address uniswapRouter = 0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af;
+        address permit2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3; // Permit2
+
+        WeValue forkImplementation = new WeValue();
+        uint256 depegThreshold = 101_000_000;
+
+        bytes memory initData = abi.encodeWithSelector(
+            WeValue.initialize.selector,
+            "WeValue",
+            "WEVALUE",
+            owner,
+            aavePool,
+            usdcUsdOracle,
+            usdc,
+            wbtcUsdOracle,
+            wbtc,
+            depegThreshold,
+            uniswapRouter,
+            permit2
+        );
+
+        ERC1967Proxy proxy = new ERC1967Proxy(address(forkImplementation), initData);
+        WeValue forkWeValue = WeValue(payable(address(proxy)));
+
+        uint256 usdcAmountToEvacuate = 1_000_000_000 * 10**6; // 1,000 USDC (6 decimals)
+        // Используем cheatcode `deal` для зачисления токенов на баланс контракта в форке
+        deal(usdc, address(forkWeValue), usdcAmountToEvacuate);
+        assertEq(IERC20(usdc).balanceOf(address(forkWeValue)), usdcAmountToEvacuate, "Initial USDC balance is incorrect");
+
+        ( , int256 price, , , ) = AggregatorV3Interface(usdcUsdOracle).latestRoundData();
+        console.log("Current USDC/USD Price (from Chainlink):", uint256(price));
+        console.log("Depeg Threshold set in contract:", depegThreshold);
+        console.log("Before balance protectedAsset:", IERC20(usdc).balanceOf(address(forkWeValue)));
+
+        // Проверяем события нестрого, так как Uniswap может генерировать свои
+        vm.expectEmit(true, true, true, false); // Не проверяем amountOut, так как он заранее неизвестен
+        emit WeValue.AssetsEvacuated(usdcAmountToEvacuate, 0); // amountOut здесь игнорируется при нестрогой проверке
+        vm.expectEmit();
+        emit WeValue.ProtectedAssetRotated(usdc, wbtc);
+
+        uint256 evacuationMinReturn = 1; // Гарантируем, что обмен произошел.
+        vm.prank(owner);
+        forkWeValue.evacuateIfDepegged(evacuationMinReturn, 0, 0, 0);
+
+        assertEq(IERC20(usdc).balanceOf(address(forkWeValue)), 0, "USDC balance should be 0 after evacuation");
+        console.log("After balance protectedAsset:", IERC20(usdc).balanceOf(address(forkWeValue)));
+
+        uint256 finalWbtcBalance = IERC20(wbtc).balanceOf(address(forkWeValue));
+        assertTrue(finalWbtcBalance > 0, "WBTC balance should be greater than 0 after evacuation");
+        console.log("Final WBTC balance:", finalWbtcBalance);
+
+        assertEq(address(forkWeValue.protectedAsset()), wbtc, "protectedAsset should be rotated to WBTC");
+        assertEq(address(forkWeValue.priceOracle()), wbtcUsdOracle, "priceOracle should be rotated to WBTC oracle");
+        assertFalse(forkWeValue.evacuating(), "Evacuating flag should be false after completion");
+    }
+
     /// @dev Тестирует успешную эвакуацию в форке mainnet. Вариант 1, с флеш-кредитом.
     function test_EvacuateIfDepegged_Fork_Flashloan_Success() public {
         uint256 forkBlock = block.number;
