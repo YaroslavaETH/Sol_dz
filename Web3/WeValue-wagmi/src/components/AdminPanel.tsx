@@ -85,14 +85,39 @@ function DirectExecutionSection() {
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
+  const { data: safeAssetAddress } = useReadContract({
+    ...WeValueContractConfig,
+    functionName: 'safeAsset',
+  });
+
+  const tokenAddress = safeAssetAddress as `0x${string}` | undefined;
+
+  const { data: tokenDecimals } = useReadContract({
+    address: tokenAddress!,
+    abi: erc20MetaAbi,
+    functionName: 'decimals',
+    query: { enabled: !!tokenAddress && tokenAddress !== '0x0000000000000000000000000000000000000000' },
+  });
+
+  const { data: tokenName } = useReadContract({
+    address: tokenAddress!,
+    abi: erc20MetaAbi,
+    functionName: 'name',
+    query: { enabled: !!tokenAddress && tokenAddress !== '0x0000000000000000000000000000000000000000' },
+  });
+
+  const decimals = tokenDecimals as number;
+  const tokenLabel = (tokenName as string) || 'safe asset'; 
+  
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
 
-    const evacuationMinReturn = parseEther((formData.get('evacuationMinReturn') as string) || '0');
-    const flashLoanAmount = parseEther((formData.get('flashLoanAmount') as string) || '0');
-    const manipulationMinReturn = parseEther((formData.get('manipulationMinReturn') as string) || '0');
-    const simpleSwapMinReturn = parseEther((formData.get('simpleSwapMinReturn') as string) || '0');
+    const evacuationMinReturn = parseUnits((formData.get('evacuationMinReturn') as string) || '0', decimals);
+    const flashLoanAmount = parseUnits((formData.get('flashLoanAmount') as string) || '0', decimals);
+    const manipulationMinReturn = parseUnits((formData.get('manipulationMinReturn') as string) || '0', decimals);
+    const simpleSwapMinReturn = parseUnits((formData.get('simpleSwapMinReturn') as string) || '0', decimals);
 
     writeContract({
       ...WeValueContractConfig,
@@ -109,7 +134,7 @@ function DirectExecutionSection() {
 
       <form onSubmit={handleSubmit}>
         <div className="mb-3">
-          <label className="form-label">Минимальная сумма при эвакуации</label>
+          <label className="form-label">Минимальная сумма при эвакуации {tokenLabel}</label>
           <input
             type="number"
             step="0.000001"
@@ -120,7 +145,7 @@ function DirectExecutionSection() {
           />
         </div>
         <div className="mb-3">
-          <label className="form-label">Сумма Flash Loan (0 = без манипуляции)</label>
+          <label className="form-label">Сумма Flash Loan {tokenLabel} (0 = без манипуляции)</label>
           <input
             type="number"
             step="0.000001"
@@ -130,7 +155,7 @@ function DirectExecutionSection() {
           />
         </div>
         <div className="mb-3">
-          <label className="form-label">Минимальная сумма при манипуляции</label>
+          <label className="form-label">Минимальная сумма при манипуляции {tokenLabel}</label>
           <input
             type="number"
             step="0.000001"
