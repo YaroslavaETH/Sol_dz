@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { WeValueContractConfig, MultiSigContractConfig } from '../contracts';
-import { parseEther, parseUnits } from 'viem';
+import { parseUnits } from 'viem';
 
 /** Минимальный ERC20 ABI для чтения decimals, name, symbol */
 const erc20MetaAbi = [
@@ -90,34 +90,88 @@ function DirectExecutionSection() {
     functionName: 'safeAsset',
   });
 
-  const tokenAddress = safeAssetAddress as `0x${string}` | undefined;
+  const { data: protectedAssetAddress } = useReadContract({
+    ...WeValueContractConfig,
+    functionName: 'protectedAsset',
+  });
 
-  const { data: tokenDecimals } = useReadContract({
-    address: tokenAddress!,
+  const safeAddr = safeAssetAddress as `0x${string}` | undefined;
+  const protectedAddr = protectedAssetAddress as `0x${string}` | undefined;
+
+  // ========== Safe Asset (КУДА эвакуируемся) ==========
+  const { data: safeDecimals } = useReadContract({
+    address: safeAddr!,
     abi: erc20MetaAbi,
     functionName: 'decimals',
-    query: { enabled: !!tokenAddress && tokenAddress !== '0x0000000000000000000000000000000000000000' },
+    query: { enabled: !!safeAddr && safeAddr !== '0x0000000000000000000000000000000000000000' },
   });
 
-  const { data: tokenName } = useReadContract({
-    address: tokenAddress!,
+  const { data: safeName } = useReadContract({
+    address: safeAddr!,
     abi: erc20MetaAbi,
     functionName: 'name',
-    query: { enabled: !!tokenAddress && tokenAddress !== '0x0000000000000000000000000000000000000000' },
+    query: { enabled: !!safeAddr && safeAddr !== '0x0000000000000000000000000000000000000000' },
   });
 
-  const decimals = tokenDecimals as number;
-  const tokenLabel = (tokenName as string) || 'safe asset'; 
-  
+  const { data: safeSymbol } = useReadContract({
+    address: safeAddr!,
+    abi: erc20MetaAbi,
+    functionName: 'symbol',
+    query: { enabled: !!safeAddr && safeAddr !== '0x0000000000000000000000000000000000000000' },
+  });
+
+  // ========== Protected Asset (ОТКУДА эвакуируемся) ==========
+  const { data: protectedDecimals } = useReadContract({
+    address: protectedAddr!,
+    abi: erc20MetaAbi,
+    functionName: 'decimals',
+    query: { enabled: !!protectedAddr && protectedAddr !== '0x0000000000000000000000000000000000000000' },
+  });
+
+  const { data: protectedName } = useReadContract({
+    address: protectedAddr!,
+    abi: erc20MetaAbi,
+    functionName: 'name',
+    query: { enabled: !!protectedAddr && protectedAddr !== '0x0000000000000000000000000000000000000000' },
+  });
+
+  const { data: protectedSymbol } = useReadContract({
+    address: protectedAddr!,
+    abi: erc20MetaAbi,
+    functionName: 'symbol',
+    query: { enabled: !!protectedAddr && protectedAddr !== '0x0000000000000000000000000000000000000000' },
+  });
+
+  const safeD = safeDecimals as number | undefined;
+  const protectedD = protectedDecimals as number | undefined;
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    if (!safeD || !protectedD) {
+      alert('Decimals еще не загружены');
+      return;
+    }
+
     const formData = new FormData(e.target as HTMLFormElement);
 
-    const evacuationMinReturn = parseUnits((formData.get('evacuationMinReturn') as string) || '0', decimals);
-    const flashLoanAmount = parseUnits((formData.get('flashLoanAmount') as string) || '0', decimals);
-    const manipulationMinReturn = parseUnits((formData.get('manipulationMinReturn') as string) || '0', decimals);
-    const simpleSwapMinReturn = parseUnits((formData.get('simpleSwapMinReturn') as string) || '0', decimals);
+    const evacuationMinReturn = parseUnits(
+      (formData.get('evacuationMinReturn') as string) || '0',
+      safeD
+    );
+    const flashLoanAmount = parseUnits(
+      (formData.get('flashLoanAmount') as string) || '0',
+      safeD
+    );
+    const simpleSwapMinReturn = parseUnits(
+      (formData.get('simpleSwapMinReturn') as string) || '0',
+      safeD
+    );
+
+    const manipulationMinReturn = parseUnits(
+      (formData.get('manipulationMinReturn') as string) || '0',
+      protectedD
+    );
 
     writeContract({
       ...WeValueContractConfig,
@@ -128,13 +182,38 @@ function DirectExecutionSection() {
 
   return (
     <div>
-      <p className="text-muted small">
-        Функция выполняется напрямую. Каждый владелец мультисиг-кошелька может вызвать её без подтверждения других владельцев.
-      </p>
+      {/* Информационный блок */}
+      <div className="alert alert-info mb-3">
+        <h6 className="alert-heading">📊 Информация об эвакуации</h6>
+        <div className="row">
+          <div className="col-md-6">
+            <p className="mb-1">
+              <strong>Откуда эвакуируем:</strong>
+              <br />
+              {protectedName as string} ({protectedSymbol as string})
+              <br />
+            </p>
+          </div>
+          <div className="col-md-6">
+            <p className="mb-1">
+              <strong>Куда эвакуируем:</strong>
+              <br />
+              {safeName as string} ({safeSymbol as string})
+              <br />
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="alert alert-warning">
+      Функция выполняется напрямую. Каждый владелец мультисиг-кошелька может вызвать её без подтверждения других владельцев.
+      </div>
 
       <form onSubmit={handleSubmit}>
         <div className="mb-3">
-          <label className="form-label">Минимальная сумма при эвакуации {tokenLabel}</label>
+          <label className="form-label">
+            Минимальная сумма при эвакуации (в {safeSymbol as string})
+          </label>
           <input
             type="number"
             step="0.000001"
@@ -142,41 +221,70 @@ function DirectExecutionSection() {
             className="form-control"
             placeholder="0"
             required
+            disabled={!safeD}
           />
+          <small className="text-muted">
+            Минимум {safeSymbol as string}, который должны получить после основного свопа
+          </small>
         </div>
+
         <div className="mb-3">
-          <label className="form-label">Сумма Flash Loan {tokenLabel} (0 = без манипуляции)</label>
+          <label className="form-label">
+            Сумма Flash Loan (в {safeSymbol as string}) — 0 = без манипуляции
+          </label>
           <input
             type="number"
             step="0.000001"
             name="flashLoanAmount"
             className="form-control"
             placeholder="0"
+            disabled={!safeD}
           />
+          <small className="text-muted">
+            Сколько {safeSymbol as string} занять в Aave для манипуляции ценой
+          </small>
         </div>
+
         <div className="mb-3">
-          <label className="form-label">Минимальная сумма при манипуляции {tokenLabel}</label>
+          <label className="form-label">
+            Минимальная сумма при манипуляции (в {protectedSymbol as string}) ⚠️
+          </label>
           <input
             type="number"
             step="0.000001"
             name="manipulationMinReturn"
             className="form-control"
             placeholder="0"
+            disabled={!protectedD}
           />
+          <small className="text-muted">
+            Минимум {protectedSymbol as string}, который получим при свопе {safeSymbol as string} → {protectedSymbol as string}
+          </small>
         </div>
+
         <div className="mb-3">
-          <label className="form-label">Сумма при простом обмене (для проверки прибыльности)</label>
+          <label className="form-label">
+            Сумма при простом обмене (в {safeSymbol as string})
+          </label>
           <input
             type="number"
             step="0.000001"
             name="simpleSwapMinReturn"
             className="form-control"
             placeholder="0"
+            disabled={!safeD}
           />
+          <small className="text-muted">
+            Для проверки прибыльности (сколько получили бы без манипуляции)
+          </small>
         </div>
 
-        <button type="submit" className="btn btn-warning" disabled={isPending || isConfirming}>
-          {isPending ? 'Отправка...' : isConfirming ? 'Подтверждение...' : 'Выполнить'}
+        <button
+          type="submit"
+          className="btn btn-danger"
+          disabled={isPending || isConfirming || !safeD || !protectedD}
+        >
+          {isPending ? 'Отправка...' : isConfirming ? 'Подтверждение...' : '🚨 Эвакуировать средства'}
         </button>
       </form>
 
@@ -187,12 +295,12 @@ function DirectExecutionSection() {
       )}
       {isSuccess && (
         <div className="alert alert-success mt-3">
-          Операция выполнена успешно!
+          ✅ Эвакуация выполнена!
         </div>
       )}
       {error && (
         <div className="alert alert-danger mt-3">
-          Ошибка: {error.message}
+          <strong>Ошибка:</strong> {error.message}
         </div>
       )}
     </div>
@@ -228,19 +336,30 @@ function WithdrawalSection() {
     query: { enabled: !!tokenAddress && tokenAddress !== '0x0000000000000000000000000000000000000000' },
   });
 
+  const { data: tokenSymbol } = useReadContract({
+    address: tokenAddress!,
+    abi: erc20MetaAbi,
+    functionName: 'symbol',
+    query: { enabled: !!tokenAddress && tokenAddress !== '0x0000000000000000000000000000000000000000' },
+  });
+
   const decimals = tokenDecimals as number | undefined;
   const tokenLabel = (tokenName as string) || 'protected asset';
+  const symbol = (tokenSymbol as string) || '???';
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
 
     if (operationType === 'withdraw') {
+      if (!decimals) {
+        alert('Decimals не загружены');
+        return;
+      }
+
       const recipient = formData.get('recipient') as `0x${string}`;
       const amountRaw = formData.get('amount') as string;
-      const amount = decimals != null
-        ? parseUnits(amountRaw || '0', decimals)
-        : parseEther(amountRaw || '0');
+      const amount = parseUnits(amountRaw || '0', decimals);
       const offchain = formData.get('offchain') === 'on';
       const description = formData.get('description') as string;
 
@@ -268,7 +387,7 @@ function WithdrawalSection() {
     <div>
       <h4>Вывод средств</h4>
       <p className="text-muted small">
-        Управление выводом средств из фонда.
+        Управление выводом средств из фонда (в {symbol}).
       </p>
 
       <div className="mb-3">
@@ -298,7 +417,7 @@ function WithdrawalSection() {
             </div>
             <div className="mb-3">
               <label className="form-label">
-                Сумма (в {tokenLabel}, {decimals != null ? `${decimals} decimals` : 'загрузка...'})
+                Сумма (в {tokenLabel})
               </label>
               <input
                 type="number"
@@ -338,53 +457,24 @@ function WithdrawalSection() {
           <>
             <div className="mb-3">
               <label className="form-label">ID операции</label>
-              <input
-                type="number"
-                name="operationId"
-                className="form-control"
-                placeholder="1"
-                required
-              />
+              <input type="number" name="operationId" className="form-control" required />
             </div>
             <div className="mb-3">
               <label className="form-label">Дата (YYYYMMDDHHSS)</label>
-              <input
-                type="number"
-                name="date"
-                className="form-control"
-                placeholder="202412311200"
-                required
-              />
+              <input type="number" name="date" className="form-control" required />
+              <small className="text-muted">Пример: 202612181430 = 18.12.2026 14:30</small>
             </div>
             <div className="mb-3">
-              <label className="form-label">ФН (Фискальный накопитель)</label>
-              <input
-                type="number"
-                name="fn"
-                className="form-control"
-                placeholder="1234567890"
-                required
-              />
+              <label className="form-label">ФН</label>
+              <input type="number" name="fn" className="form-control" required />
             </div>
             <div className="mb-3">
-              <label className="form-label">ФД (Порядковый номер)</label>
-              <input
-                type="number"
-                name="fd"
-                className="form-control"
-                placeholder="1"
-                required
-              />
+              <label className="form-label">ФД</label>
+              <input type="number" name="fd" className="form-control" required />
             </div>
             <div className="mb-3">
-              <label className="form-label">ФПД (Фискальный признак)</label>
-              <input
-                type="number"
-                name="fpd"
-                className="form-control"
-                placeholder="1234567890"
-                required
-              />
+              <label className="form-label">ФПД</label>
+              <input type="number" name="fpd" className="form-control" required />
             </div>
           </>
         )}
@@ -405,7 +495,7 @@ function WithdrawalSection() {
       )}
       {isSuccess && (
         <div className="alert alert-success mt-3">
-          Операция выполнена успешно!
+          Операция выполнена!
         </div>
       )}
       {error && (
