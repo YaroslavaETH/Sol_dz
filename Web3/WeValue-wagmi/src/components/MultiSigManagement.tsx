@@ -182,7 +182,7 @@ function TransactionItem({
  * Форма для создания новой транзакции
  */
 function ProposeTransactionForm() {
-  const [txType, setTxType] = useState<'evacuate' | 'setSafeAsset' | 'setThreshold'>('evacuate');
+  const [txType, setTxType] = useState<'convertEthToProtectedAsset' | 'evacuate' | 'setSafeAsset' | 'setThreshold'>('convertEthToProtectedAsset');
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
   
@@ -204,7 +204,7 @@ function ProposeTransactionForm() {
         functionName: 'evacuateIfDepegged',
         args: [evacuationMinReturn, flashLoanAmount, manipulationMinReturn, simpleSwapMinReturn],
       });
-      description = 'Evacuate if depegged';
+      description = 'Эвакуация средств в безопасный актив';
     } else if (txType === 'setSafeAsset') {
       const newSafeAsset = formData.get('newSafeAsset') as `0x${string}`;
       const newOracle = formData.get('newOracle') as `0x${string}`;
@@ -214,7 +214,16 @@ function ProposeTransactionForm() {
         functionName: 'setSafeAsset',
         args: [newSafeAsset, newOracle],
       });
-      description = `Set safe asset to ${newSafeAsset}`;
+      description = `Установить safe asset  ${newSafeAsset}`;
+    }else if (txType === 'convertEthToProtectedAsset') {
+      const minAmountOut = BigInt(formData.get('minAmountOut') as string);
+      
+      data = encodeFunctionData({
+        abi: WeValueContractConfig.abi,
+        functionName: 'convertEthToProtectedAsset',
+        args: [minAmountOut],
+      });
+      description = `Обменять eth на защищенный актив`;
     } else {
       const threshold = BigInt(formData.get('threshold') as string);
       
@@ -223,7 +232,7 @@ function ProposeTransactionForm() {
         functionName: 'setDepegThreshold',
         args: [threshold],
       });
-      description = `Set depeg threshold to ${threshold}`;
+      description = `Установить пороговую цены для эвакуации ${threshold}`;
     }
     
     writeContract({
@@ -244,6 +253,7 @@ function ProposeTransactionForm() {
           value={txType} 
           onChange={(e) => setTxType(e.target.value as any)}
         >
+          <option value="convertEthToProtectedAsset">Обмен eth фонда</option>
           <option value="evacuate">Эвакуация активов</option>
           <option value="setSafeAsset">Изменить безопасный актив</option>
           <option value="setThreshold">Изменить порог депега</option>
@@ -254,19 +264,19 @@ function ProposeTransactionForm() {
         {txType === 'evacuate' && (
           <>
             <div className="mb-3">
-              <label className="form-label">Evacuation Min Return (ETH)</label>
+              <label className="form-label">Минимальная сумма пригодная для эвакуации</label>
               <input type="number" step="0.01" name="evacuationMinReturn" className="form-control" required />
             </div>
             <div className="mb-3">
-              <label className="form-label">Flash Loan Amount (ETH)</label>
+              <label className="form-label">Суммай займа Flash Loan</label>
               <input type="number" step="0.01" name="flashLoanAmount" className="form-control" />
             </div>
             <div className="mb-3">
-              <label className="form-label">Manipulation Min Return (ETH)</label>
+              <label className="form-label">Минимальная сумма при манипуляции</label>
               <input type="number" step="0.01" name="manipulationMinReturn" className="form-control" />
             </div>
             <div className="mb-3">
-              <label className="form-label">Simple Swap Min Return (ETH)</label>
+              <label className="form-label">Сколько бы получили при простом обмене</label>
               <input type="number" step="0.01" name="simpleSwapMinReturn" className="form-control" />
             </div>
           </>
@@ -275,19 +285,26 @@ function ProposeTransactionForm() {
         {txType === 'setSafeAsset' && (
           <>
             <div className="mb-3">
-              <label className="form-label">New Safe Asset Address</label>
+              <label className="form-label">Адрес Safe Asset</label>
               <input type="text" name="newSafeAsset" className="form-control" placeholder="0x..." required />
             </div>
             <div className="mb-3">
-              <label className="form-label">New Oracle Address</label>
+              <label className="form-label">Адрес Oracle Safe Asset</label>
               <input type="text" name="newOracle" className="form-control" placeholder="0x..." required />
             </div>
           </>
         )}
         
+        {txType === 'convertEthToProtectedAsset' && (
+          <div className="mb-3">
+            <label className="form-label">Минимальная сумма на выходе обмена</label>
+            <input type="number" name="minAmountOut" className="form-control" required />
+          </div>
+        )}
+        
         {txType === 'setThreshold' && (
           <div className="mb-3">
-            <label className="form-label">New Threshold (8 decimals, e.g., 95000000 = $0.95)</label>
+            <label className="form-label">Пороговая цена(8 decimals, например, 95000000 = $0.95)</label>
             <input type="number" name="threshold" className="form-control" required />
           </div>
         )}

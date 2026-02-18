@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {Script, console} from "forge-std/Script.sol";
-import {WeValue} from "src/WeValue_v2.sol";
+import {WeValue} from "src/WeValue_v3.sol";
 import {MultiSigWallet} from "src/MultiSigWallet.sol";
 
 /**
@@ -10,8 +10,7 @@ import {MultiSigWallet} from "src/MultiSigWallet.sol";
  * @notice Предложить upgrade WeValue через MultiSig
  * 
  * Запуск (создает транзакцию в мультисиге):
- * forge script script/ProposeUpgradeWeValue.sepolia.s.sol:ProposeUpgradeWeValue \
- *   --rpc-url sepolia --broadcast -vv
+ * forge script script/ProposeUpgradeWeValue.sepolia.s.sol:ProposeUpgradeWeValue --rpc-url sepolia --broadcast -vv
  */
 contract ProposeUpgradeWeValue is Script {
     function run() external {

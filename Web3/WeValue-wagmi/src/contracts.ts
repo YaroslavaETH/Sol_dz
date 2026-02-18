@@ -1,4 +1,4 @@
-import abiWeValue from './abi/WeValue_v2.sol/WeValue.json';
+import abiWeValue from './abi/WeValue_v3.sol/WeValue.json';
 import abiMultiSig from './abi/MultiSigWallet.sol/MultiSigWallet.json';
 
 // WeValue Contract
