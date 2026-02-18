@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { WeValueContractConfig, MultiSigContractConfig } from '../contracts';
-import { parseEther } from 'viem';
+import { parseEther, parseUnits } from 'viem';
+
+/** Минимальный ERC20 ABI для чтения decimals, name, symbol */
+const erc20MetaAbi = [
+  { name: 'decimals', type: 'function', inputs: [], outputs: [{ type: 'uint8' }], stateMutability: 'view' },
+  { name: 'name', type: 'function', inputs: [], outputs: [{ type: 'string' }], stateMutability: 'view' },
+  { name: 'symbol', type: 'function', inputs: [], outputs: [{ type: 'string' }], stateMutability: 'view' },
+] as const;
 
 /**
  * Компонент админ-панели для владельцев
@@ -175,13 +182,40 @@ function WithdrawalSection() {
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
+  const { data: protectedAssetAddress } = useReadContract({
+    ...WeValueContractConfig,
+    functionName: 'protectedAsset',
+  });
+
+  const tokenAddress = protectedAssetAddress as `0x${string}` | undefined;
+
+  const { data: tokenDecimals } = useReadContract({
+    address: tokenAddress!,
+    abi: erc20MetaAbi,
+    functionName: 'decimals',
+    query: { enabled: !!tokenAddress && tokenAddress !== '0x0000000000000000000000000000000000000000' },
+  });
+
+  const { data: tokenName } = useReadContract({
+    address: tokenAddress!,
+    abi: erc20MetaAbi,
+    functionName: 'name',
+    query: { enabled: !!tokenAddress && tokenAddress !== '0x0000000000000000000000000000000000000000' },
+  });
+
+  const decimals = tokenDecimals as number | undefined;
+  const tokenLabel = (tokenName as string) || 'protected asset';
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
 
     if (operationType === 'withdraw') {
       const recipient = formData.get('recipient') as `0x${string}`;
-      const amount = parseEther(formData.get('amount') as string);
+      const amountRaw = formData.get('amount') as string;
+      const amount = decimals != null
+        ? parseUnits(amountRaw || '0', decimals)
+        : parseEther(amountRaw || '0');
       const offchain = formData.get('offchain') === 'on';
       const description = formData.get('description') as string;
 
@@ -238,14 +272,17 @@ function WithdrawalSection() {
               />
             </div>
             <div className="mb-3">
-              <label className="form-label">Сумма (в USDC, 6 decimals)</label>
+              <label className="form-label">
+                Сумма (в {tokenLabel}, {decimals != null ? `${decimals} decimals` : 'загрузка...'})
+              </label>
               <input
                 type="number"
-                step="0.01"
+                step="0.000001"
                 name="amount"
                 className="form-control"
                 placeholder="100"
                 required
+                disabled={decimals == null}
               />
             </div>
             <div className="mb-3">
@@ -327,7 +364,11 @@ function WithdrawalSection() {
           </>
         )}
 
-        <button type="submit" className="btn btn-primary" disabled={isPending || isConfirming}>
+        <button
+          type="submit"
+          className="btn btn-primary"
+          disabled={isPending || isConfirming || (operationType === 'withdraw' && decimals == null)}
+        >
           {isPending ? 'Отправка...' : isConfirming ? 'Подтверждение...' : 'Выполнить'}
         </button>
       </form>
