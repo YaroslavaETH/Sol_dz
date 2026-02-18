@@ -1,4 +1,5 @@
 [
+  { "inputs": [], "stateMutability": "nonpayable", "type": "constructor" },
   {
     "inputs": [
       { "internalType": "address", "name": "target", "type": "address" }
@@ -6,6 +7,7 @@
     "name": "AddressEmptyCode",
     "type": "error"
   },
+  { "inputs": [], "name": "CheckAlreadyUsed", "type": "error" },
   { "inputs": [], "name": "ECDSAInvalidSignature", "type": "error" },
   {
     "inputs": [
@@ -89,8 +91,24 @@
     "type": "error"
   },
   { "inputs": [], "name": "EvacuationInProgress", "type": "error" },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "", "type": "uint256" },
+      { "internalType": "uint256", "name": "", "type": "uint256" }
+    ],
+    "name": "EvacuationWithCreditFailed",
+    "type": "error"
+  },
   { "inputs": [], "name": "FailedCall", "type": "error" },
   { "inputs": [], "name": "FlashloanFailed", "type": "error" },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "", "type": "uint256" },
+      { "internalType": "uint256", "name": "", "type": "uint256" }
+    ],
+    "name": "InsufficientOutputAmount",
+    "type": "error"
+  },
   {
     "inputs": [
       { "internalType": "address", "name": "account", "type": "address" },
@@ -100,6 +118,7 @@
     "type": "error"
   },
   { "inputs": [], "name": "InvalidInitialization", "type": "error" },
+  { "inputs": [], "name": "NeedSetSafeAsset", "type": "error" },
   { "inputs": [], "name": "NoEthToConvert", "type": "error" },
   { "inputs": [], "name": "NotInitializing", "type": "error" },
   {
@@ -109,6 +128,8 @@
     "name": "NullDonation",
     "type": "error"
   },
+  { "inputs": [], "name": "OperationHasNoChecks", "type": "error" },
+  { "inputs": [], "name": "OperationNotFound", "type": "error" },
   {
     "inputs": [
       { "internalType": "address", "name": "owner", "type": "address" }
@@ -124,7 +145,6 @@
     "type": "error"
   },
   { "inputs": [], "name": "PriceIsStable", "type": "error" },
-  { "inputs": [], "name": "SwapFailed", "type": "error" },
   { "inputs": [], "name": "UUPSUnauthorizedCallContext", "type": "error" },
   {
     "inputs": [
@@ -132,6 +152,44 @@
     ],
     "name": "UUPSUnsupportedProxiableUUID",
     "type": "error"
+  },
+  { "inputs": [], "name": "WithdrawalProtectedAssetFailed", "type": "error" },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "operationId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "date",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "fn",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "fd",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "fpd",
+        "type": "uint32"
+      }
+    ],
+    "name": "AddCheckToWithdrawal",
+    "type": "event"
   },
   {
     "anonymous": false,
@@ -335,11 +393,11 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "newTrustedForwarder",
+        "name": "implementation",
         "type": "address"
       }
     ],
-    "name": "TrustedForwarderChanged",
+    "name": "Upgraded",
     "type": "event"
   },
   {
@@ -347,12 +405,55 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "address",
-        "name": "implementation",
-        "type": "address"
+        "internalType": "uint256",
+        "name": "operationId",
+        "type": "uint256"
       }
     ],
-    "name": "Upgraded",
+    "name": "WithdrawalConfirmed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "operationId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "recipient",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "offchain",
+        "type": "bool"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "decription",
+        "type": "string"
+      }
+    ],
+    "name": "WithdrawalProtectedAsset",
     "type": "event"
   },
   {
@@ -376,6 +477,19 @@
       { "internalType": "contract IPool", "name": "", "type": "address" }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "operationId", "type": "uint256" },
+      { "internalType": "uint64", "name": "date", "type": "uint64" },
+      { "internalType": "uint64", "name": "fn", "type": "uint64" },
+      { "internalType": "uint32", "name": "fd", "type": "uint32" },
+      { "internalType": "uint32", "name": "fpd", "type": "uint32" }
+    ],
+    "name": "addCheckToWithdrawal",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -409,8 +523,30 @@
   },
   {
     "inputs": [
-      { "internalType": "bytes", "name": "data", "type": "bytes" },
-      { "internalType": "uint256", "name": "minReturn", "type": "uint256" }
+      { "internalType": "bytes32", "name": "hashCheck", "type": "bytes32" }
+    ],
+    "name": "checks",
+    "outputs": [
+      { "internalType": "uint64", "name": "date", "type": "uint64" },
+      { "internalType": "uint64", "name": "fn", "type": "uint64" },
+      { "internalType": "uint32", "name": "fd", "type": "uint32" },
+      { "internalType": "uint32", "name": "fpd", "type": "uint32" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "operationId", "type": "uint256" }
+    ],
+    "name": "confirmWithdrawal",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "minAmountOut", "type": "uint256" }
     ],
     "name": "convertEthToProtectedAsset",
     "outputs": [],
@@ -459,8 +595,11 @@
   },
   {
     "inputs": [
-      { "internalType": "bytes", "name": "manipulationData", "type": "bytes" },
-      { "internalType": "bytes", "name": "evacuationData", "type": "bytes" },
+      {
+        "internalType": "uint256",
+        "name": "evacuationMinReturn",
+        "type": "uint256"
+      },
       {
         "internalType": "uint256",
         "name": "flashLoanAmount",
@@ -469,11 +608,6 @@
       {
         "internalType": "uint256",
         "name": "manipulationMinReturn",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "evacuationMinReturn",
         "type": "uint256"
       },
       {
@@ -509,18 +643,47 @@
   },
   {
     "inputs": [
+      { "internalType": "uint64", "name": "_fn", "type": "uint64" },
+      { "internalType": "uint32", "name": "_fd", "type": "uint32" },
+      { "internalType": "uint32", "name": "_fpd", "type": "uint32" }
+    ],
+    "name": "getReceiptHash",
+    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getUnconfirmedOperationsCount",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "operationId", "type": "uint256" },
+      { "internalType": "uint256", "name": "index", "type": "uint256" }
+    ],
+    "name": "getWithdrawalCheckAtIndex",
+    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "operationId", "type": "uint256" }
+    ],
+    "name": "getWithdrawalChecksCount",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "string", "name": "name", "type": "string" },
+      { "internalType": "string", "name": "symbol", "type": "string" },
       { "internalType": "address", "name": "initialOwner", "type": "address" },
-      {
-        "internalType": "address",
-        "name": "_trustedForwarderAddress",
-        "type": "address"
-      },
       { "internalType": "address", "name": "_aavePool", "type": "address" },
-      {
-        "internalType": "address",
-        "name": "_oneInchRouter",
-        "type": "address"
-      },
       { "internalType": "address", "name": "_priceOracle", "type": "address" },
       {
         "internalType": "address",
@@ -537,7 +700,9 @@
         "internalType": "uint256",
         "name": "_depegThreshold",
         "type": "uint256"
-      }
+      },
+      { "internalType": "address", "name": "_router", "type": "address" },
+      { "internalType": "address", "name": "_permit2", "type": "address" }
     ],
     "name": "initialize",
     "outputs": [],
@@ -546,11 +711,12 @@
   },
   {
     "inputs": [
-      { "internalType": "address", "name": "forwarder", "type": "address" }
+      { "internalType": "address", "name": "_router", "type": "address" },
+      { "internalType": "address", "name": "_permit2", "type": "address" }
     ],
-    "name": "isTrustedForwarder",
-    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
-    "stateMutability": "view",
+    "name": "initializeV2",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -566,19 +732,6 @@
     ],
     "name": "nonces",
     "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "oneInchRouter",
-    "outputs": [
-      {
-        "internalType": "contract IOneInchRouter",
-        "name": "",
-        "type": "address"
-      }
-    ],
     "stateMutability": "view",
     "type": "function"
   },
@@ -602,6 +755,15 @@
     "name": "permit",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "permit2",
+    "outputs": [
+      { "internalType": "contract IPermit2", "name": "", "type": "address" }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -642,6 +804,19 @@
   },
   {
     "inputs": [],
+    "name": "router",
+    "outputs": [
+      {
+        "internalType": "contract IUniversalRouter",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "safeAsset",
     "outputs": [
       { "internalType": "contract IERC20", "name": "", "type": "address" }
@@ -667,19 +842,6 @@
       { "internalType": "address", "name": "newSafeAsset", "type": "address" }
     ],
     "name": "setSafeAsset",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "newTrustedForwarder",
-        "type": "address"
-      }
-    ],
-    "name": "setTrustedForwarder",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -744,9 +906,9 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "trustedForwarder",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "name": "unconfirmedOperations",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
     "stateMutability": "view",
     "type": "function"
   },
@@ -769,6 +931,37 @@
     "name": "version",
     "outputs": [{ "internalType": "string", "name": "", "type": "string" }],
     "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "withdrawalCount",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "id", "type": "uint256" }],
+    "name": "withdrawalOperations",
+    "outputs": [
+      { "internalType": "uint256", "name": "amount", "type": "uint256" },
+      { "internalType": "address", "name": "recipient", "type": "address" },
+      { "internalType": "bool", "name": "offchain", "type": "bool" },
+      { "internalType": "uint256", "name": "timestamp", "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "recipient", "type": "address" },
+      { "internalType": "uint256", "name": "amount", "type": "uint256" },
+      { "internalType": "bool", "name": "offchain", "type": "bool" },
+      { "internalType": "string", "name": "decription", "type": "string" }
+    ],
+    "name": "withdrawalProtectedAsset",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   { "stateMutability": "payable", "type": "receive" }

@@ -1,11 +1,10 @@
 {
   "sepolia": {
     "WeValueProxy": {
-      "address": "0x9dECFb688Cc336442A581D280e748a0909348A45",
-      "startBlock": 10162440
+      "address": "0x0A8F04D29977f58FC452c69f115fd598C4B0bf6d"
     },
     "WeValue": {
-      "address": "0x768e550f12ab040bc2A5EC86Ac6335B3396F4975"
+      "address": "0x47728C8FC6FcE22aB0b939F28345A84c26f0178d"
     }
   }
 }

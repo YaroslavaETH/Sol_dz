@@ -1,6 +1,5 @@
 import { useConnection } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { ConnectionStatus } from './ConnectionStatus';
 import { ConnectionInfo } from './ConnectionInfo';
 import { DonationSection } from './DonationSection';
 
@@ -14,7 +13,6 @@ export function ConnectionSection() {
         <div className="mb-3">
           <ConnectButton showBalance={true} />
         </div>
-        <ConnectionStatus />
         <ConnectionInfo />
         {connection.isConnected && <DonationSection />}
       </div>

@@ -763,7 +763,7 @@ contract WeValueTest is Test {
         address usdcUsdOracle = 0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6;
         address wbtcUsdOracle = 0xfdFD9C85aD200c506Cf9e21F1FD8dd01932FBB23;
         address uniswapRouter = 0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af;
-        address permit2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3; // Permit2
+        address permit2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
         WeValue forkImplementation = new WeValue();
         uint256 depegThreshold = 101_000_000;

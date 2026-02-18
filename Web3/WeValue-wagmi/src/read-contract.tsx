@@ -122,22 +122,6 @@ function ReadContractProtectedAsset({ address }: ReadContractProps) {
   )  
 }
 
-export function CurrentPriceGaz({ chain }: { chain?: { nativeCurrency?: { decimals: number; symbol: string } } }){
-  const { data, isLoading, isError } = useGasPrice();
-   if (isLoading) return <div className="alert alert-info">Загрузка цены на газ...</div>;
-   if (isError) return <div className="alert alert-danger">Ошибка загрузки цены на газ</div>;
-   
-   const gasPriceFormatted = data && chain?.nativeCurrency
-     ? formatUnits(data, chain.nativeCurrency.decimals)
-     : 'N/A';
- 
-   return (
-     <div className="alert alert-secondary">
-       <strong>Текущая цена газа:</strong> {gasPriceFormatted} {chain?.nativeCurrency?.symbol}
-     </div>
-   );
-}
-
 export function BalanceWallet({ address }: ReadContractProps) {
   if (!address) return null;
 
@@ -149,7 +133,7 @@ export function BalanceWallet({ address }: ReadContractProps) {
   if (isError) return <div className="alert alert-danger">Ошибка загрузки баланса</div>;
   return (
     <div className="alert alert-secondary">
-      <strong>Баланс кошелька:</strong> {data?.value && data?.decimals ? formatEther(data?.value, "gwei") : 'N/A'} gwei
+      <strong>Баланс кошелька:</strong> {data?.value && data?.decimals ? formatEther(data?.value, "wei") : 'N/A'} wei
     </div>
   )
 }
