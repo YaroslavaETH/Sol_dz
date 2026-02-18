@@ -8,7 +8,7 @@ dataSources:
     name: WeValue
     network: sepolia
     source:
-      address: "0x47728C8FC6FcE22aB0b939F28345A84c26f0178d"
+      address: "0x0A8F04D29977f58FC452c69f115fd598C4B0bf6d"
       abi: WeValue
       startBlock: 10279133
     mapping:

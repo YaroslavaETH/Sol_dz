@@ -149,7 +149,7 @@ export function BalanceContract() {
   if (isError) return <div className="alert alert-danger">Ошибка загрузки баланса контракта</div>;
   return (
     <div className="alert alert-warning">
-      <strong>Баланс контракта:</strong> {data?.value && data?.decimals ? formatEther(data?.value, "gwei") : 'N/A'} gwei
+      <strong>Баланс контракта:</strong> {data?.value && data?.decimals ? formatEther(data?.value, "wei") : 'N/A'} wei
     </div>
   )
 }

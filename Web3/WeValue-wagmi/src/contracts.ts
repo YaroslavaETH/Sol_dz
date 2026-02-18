@@ -9,7 +9,7 @@ export const WeValueContractConfig = {
 
 // MultiSig Wallet Contract
 export const MultiSigContractConfig = {
-  address: '0x305E96cF0257f8C439FF80d0D4C9AFBc276f0ad1' as `0x${string}`, // ЗАМЕНИТЕ после деплоя!
+  address: '0x305E96cF0257f8C439FF80d0D4C9AFBc276f0ad1' as `0x${string}`,
   abi: abiMultiSig.abi,
 } as const;
 

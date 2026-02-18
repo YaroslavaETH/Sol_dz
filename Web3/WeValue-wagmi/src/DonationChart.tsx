@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {Chart} from 'chart.js/auto';
-// import { Donation } from '../we-value-sepolia-the-graph/generated/schema.ts'; // путь к сгенерированным типам
 import { formatEther } from 'viem';
 
 const DonationChart = () => {
@@ -12,7 +11,7 @@ const DonationChart = () => {
   const { isLoading, data, error } = useQuery({
     queryKey: ['donations'],
     queryFn: async () => {
-      const response = await fetch(`https://api.studio.thegraph.com/query/1724651/we-value-sepolia/version/latest`, {
+      const response = await fetch(`https://api.studio.thegraph.com/query/1724651/we-value/version/latest`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -112,7 +111,6 @@ const DonationChart = () => {
 
   return (
     <div className="donation-chart">
-      <h2>График пожертвований</h2>
       <div>
         <canvas id="donationChart"></canvas>
         </div>
