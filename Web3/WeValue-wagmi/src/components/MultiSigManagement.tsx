@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { MultiSigContractConfig, WeValueContractConfig } from '../contracts';
-import { parseEther, encodeFunctionData } from 'viem';
+import { encodeFunctionData } from 'viem';
 import { ProtectedAssetPriceInfo } from './ProtectedAssetPriceInfo';
+import { AdminPanel } from './AdminPanel';
 
 /**
  * Компонент для управления MultiSig кошельком
@@ -26,16 +27,38 @@ export function MultiSigManagement() {
   return (
     <div className="card">
       <div className="card-body">
-        <h2 className="card-title">🔐 MultiSig Management</h2>
-        <p className="text-muted">Вы являетесь владельцем мультисиг кошелька</p>
+        <h2 className="card-title">🔐 Управление фондом (MultiSig)</h2>
+        <p className="text-muted">Раздел доступен только владельцам мультисиг кошелька</p>
 
         <div className="mt-4">
-          <ProtectedAssetPriceInfo />
-          <SafeAssetInfo />
+          {/* Информация о текущей цене, пороге и безопасном активе */}
+          <section className="mb-4">
+            <ProtectedAssetPriceInfo />
+            <SafeAssetInfo />
+          </section>
+
+          {/* Функции, доступные любому из владельцев (onlyMultiSigOwner) */}
           <hr />
-          <PendingTransactions />
+          <section className="mb-4">
+            <h3 className="h5 mb-3">Функции для владельцев фонда (onlyMultiSigOwner)</h3>
+            <AdminPanel />
+          </section>
+
+          {/* Транзакции MultiSig, ожидающие подтверждения */}
           <hr />
-          <ProposeTransactionForm />
+          <section className="mb-4">
+            <PendingTransactions />
+          </section>
+
+          {/* Предложение транзакций onlyOwner через MultiSig */}
+          <hr />
+          <section className="mb-2">
+            <h3 className="h5 mb-3">Предложить транзакции владельца (onlyOwner)</h3>
+            <ProposeTransactionForm />
+            <div className="mt-4">
+              <UpgradeProposalSection />
+            </div>
+          </section>
         </div>
       </div>
     </div>
@@ -186,7 +209,9 @@ function TransactionItem({
  * Форма для создания новой транзакции
  */
 function ProposeTransactionForm() {
-  const [txType, setTxType] = useState<'convertEthToProtectedAsset' | 'evacuate' | 'setSafeAsset' | 'setThreshold'>('convertEthToProtectedAsset');
+  const [txType, setTxType] = useState<
+    'convertEthToProtectedAsset' | 'setSafeAsset' | 'setThreshold' | 'confirmWithdrawal'
+  >('convertEthToProtectedAsset');
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -197,19 +222,7 @@ function ProposeTransactionForm() {
     let data: `0x${string}`;
     let description: string;
 
-    if (txType === 'evacuate') {
-      const evacuationMinReturn = parseEther(formData.get('evacuationMinReturn') as string || '0');
-      const flashLoanAmount = parseEther(formData.get('flashLoanAmount') as string || '0');
-      const manipulationMinReturn = parseEther(formData.get('manipulationMinReturn') as string || '0');
-      const simpleSwapMinReturn = parseEther(formData.get('simpleSwapMinReturn') as string || '0');
-
-      data = encodeFunctionData({
-        abi: WeValueContractConfig.abi,
-        functionName: 'evacuateIfDepegged',
-        args: [evacuationMinReturn, flashLoanAmount, manipulationMinReturn, simpleSwapMinReturn],
-      });
-      description = 'Эвакуация средств в безопасный актив';
-    } else if (txType === 'setSafeAsset') {
+    if (txType === 'setSafeAsset') {
       const newSafeAsset = formData.get('newSafeAsset') as `0x${string}`;
       const newOracle = formData.get('newOracle') as `0x${string}`;
 
@@ -228,7 +241,7 @@ function ProposeTransactionForm() {
         args: [minAmountOut],
       });
       description = `Обменять eth на защищенный актив`;
-    } else {
+    } else if (txType === 'setThreshold') {
       const threshold = BigInt(formData.get('threshold') as string);
 
       data = encodeFunctionData({
@@ -237,6 +250,15 @@ function ProposeTransactionForm() {
         args: [threshold],
       });
       description = `Установить пороговую цены для эвакуации ${threshold}`;
+    } else {
+      const operationId = BigInt(formData.get('operationId') as string);
+
+      data = encodeFunctionData({
+        abi: WeValueContractConfig.abi,
+        functionName: 'confirmWithdrawal',
+        args: [operationId],
+      });
+      description = `Подтвердить вывод средств #${operationId}`;
     }
 
     writeContract({
@@ -258,34 +280,13 @@ function ProposeTransactionForm() {
           onChange={(e) => setTxType(e.target.value as any)}
         >
           <option value="convertEthToProtectedAsset">Обмен eth фонда</option>
-          <option value="evacuate">Эвакуация активов</option>
           <option value="setSafeAsset">Изменить безопасный актив</option>
           <option value="setThreshold">Изменить порог депега</option>
+          <option value="confirmWithdrawal">Подтвердить вывод средств</option>
         </select>
       </div>
 
       <form onSubmit={handlePropose}>
-        {txType === 'evacuate' && (
-          <>
-            <div className="mb-3">
-              <label className="form-label">Минимальная сумма пригодная для эвакуации</label>
-              <input type="number" step="0.01" name="evacuationMinReturn" className="form-control" required />
-            </div>
-            <div className="mb-3">
-              <label className="form-label">Суммай займа Flash Loan</label>
-              <input type="number" step="0.01" name="flashLoanAmount" className="form-control" />
-            </div>
-            <div className="mb-3">
-              <label className="form-label">Минимальная сумма при манипуляции</label>
-              <input type="number" step="0.01" name="manipulationMinReturn" className="form-control" />
-            </div>
-            <div className="mb-3">
-              <label className="form-label">Сколько бы получили при простом обмене</label>
-              <input type="number" step="0.01" name="simpleSwapMinReturn" className="form-control" />
-            </div>
-          </>
-        )}
-
         {txType === 'setSafeAsset' && (
           <>
             <div className="mb-3">
@@ -313,6 +314,13 @@ function ProposeTransactionForm() {
           </div>
         )}
 
+        {txType === 'confirmWithdrawal' && (
+          <div className="mb-3">
+            <label className="form-label">ID операции вывода для подтверждения</label>
+            <input type="number" name="operationId" className="form-control" required />
+          </div>
+        )}
+
         <button type="submit" className="btn btn-primary" disabled={isPending || isConfirming}>
           {isPending ? 'Отправка...' : isConfirming ? 'Ожидание...' : 'Предложить транзакцию'}
         </button>
@@ -326,6 +334,100 @@ function ProposeTransactionForm() {
       {isSuccess && (
         <div className="alert alert-success mt-3">
           Транзакция предложена! Ожидайте подтверждения других владельцев.
+        </div>
+      )}
+      {error && (
+        <div className="alert alert-danger mt-3">
+          Ошибка: {error.message}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Секция для предложения обновления реализации (UUPS) как onlyOwner-транзакции через MultiSig
+ */
+function UpgradeProposalSection() {
+  const [newImplementation, setNewImplementation] = useState('');
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  // ABI для функции upgradeTo
+  const upgradeToAbi = [
+    {
+      name: 'upgradeTo',
+      type: 'function',
+      inputs: [{ name: 'newImplementation', type: 'address' }],
+      outputs: [],
+      stateMutability: 'nonpayable',
+    },
+  ] as const;
+
+  const handleProposeUpgrade = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!newImplementation) return;
+
+    // Кодируем данные для вызова upgradeTo на прокси
+    const encodedData = encodeFunctionData({
+      abi: upgradeToAbi,
+      functionName: 'upgradeTo',
+      args: [newImplementation as `0x${string}`],
+    });
+
+    // Предлагаем транзакцию через MultiSig
+    writeContract({
+      ...MultiSigContractConfig,
+      functionName: 'proposeTransaction',
+      args: [
+        WeValueContractConfig.address,
+        0n,
+        encodedData,
+        `Обновление реализации WeValue до ${newImplementation}`,
+      ],
+    });
+  };
+
+  return (
+    <div>
+      <h4>Предложение обновления реализации</h4>
+      <p className="text-muted small">
+        Предложите обновление реализации контракта WeValue. Это потребует подтверждения от других владельцев через
+        MultiSig.
+      </p>
+
+      <div className="alert alert-warning">
+        <strong>Внимание:</strong> Обновление контракта — ответственная операция. Убедитесь, что новый контракт
+        протестирован и имеет совместимый интерфейс.
+      </div>
+
+      <form onSubmit={handleProposeUpgrade}>
+        <div className="mb-3">
+          <label className="form-label">Адрес новой реализации</label>
+          <input
+            type="text"
+            className="form-control"
+            value={newImplementation}
+            onChange={(e) => setNewImplementation(e.target.value)}
+            placeholder="0x..."
+            required
+          />
+        </div>
+
+        <button type="submit" className="btn btn-danger" disabled={isPending || isConfirming}>
+          {isPending ? 'Отправка...' : isConfirming ? 'Подтверждение...' : 'Предложить обновление'}
+        </button>
+      </form>
+
+      {hash && (
+        <div className="alert alert-info mt-3">
+          <strong>Hash:</strong> <code>{hash}</code>
+        </div>
+      )}
+      {isSuccess && (
+        <div className="alert alert-success mt-3">
+          Предложение обновления создано! Ожидайте подтверждения от других владельцев.
         </div>
       )}
       {error && (

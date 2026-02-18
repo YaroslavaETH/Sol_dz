@@ -288,7 +288,7 @@ contract WeValue is
      * @dev Только для владельца MultiSigWallet.
      * @param _newDepeg новое значение пороговой цены.
      */
-     function setDepegThreshold(uint256 _newDepeg) external onlyMultiSigOwner{
+     function setDepegThreshold(uint256 _newDepeg) external onlyOwner{
         uint256 _oldDepeg = depegThreshold;
         depegThreshold = _newDepeg;
         emit ChangeDepegThreshold(_oldDepeg, _newDepeg);

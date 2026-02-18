@@ -27,7 +27,7 @@ export function WithdrawalOperation() {
 
   return (
     <div className="mb-3">
-      <div className="alert alert-success">
+      <div className="alert alert-info">
         <strong>Общее количество транзакций оказанной помощи:</strong> {all}
           <br />
         <strong>Из них не подтверждено:</strong> {Unconfirmed}
