@@ -4,7 +4,8 @@ pragma solidity ^0.8.27;
 import {AggregatorV3Interface} from "src/interfaces/AggregatorV3Interface.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Test, console} from "forge-std/Test.sol"; 
-import {WeValue} from "src/WeValue_v2.sol"; // Используем v2
+import {WeValue} from "src/WeValue_v3.sol"; 
+import {MultiSigWallet} from "src/MultiSigWallet.sol";
 import {MockERC20, MockAggregatorV3, MockAavePool, MockUniswapRouter, MockPermit2} from "test/mocks/Mocks.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
@@ -13,7 +14,11 @@ import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 contract WeValueTest is Test {
     // Пользователи
     address owner;
+    address owner1;
+    address owner2;
     uint256 keyOwner;
+    uint256 keyOwner1;
+    address ownerWallet;
     address alice;
     uint256 keyAlice;
     address bob;
@@ -36,6 +41,8 @@ contract WeValueTest is Test {
     function setUp() public {
         // Инициализируем пользователей
         (owner, keyOwner) = makeAddrAndKey("owner");
+        (owner1, keyOwner1) = makeAddrAndKey("owner1");
+        owner2 = makeAddr("owner2");
         (alice, keyAlice) = makeAddrAndKey("alice");
         (bob, keyBob) = makeAddrAndKey("bob");
 
@@ -52,13 +59,20 @@ contract WeValueTest is Test {
         
         // Развертывание реализации и прокси
         implementation = new WeValue();
+
+        // Развертывание мультисиг кошелька
+        address[] memory multisigOwners = new address[](3);
+        multisigOwners[0] = owner;
+        multisigOwners[1] = owner1;
+        multisigOwners[2] = owner2;
+        ownerWallet = address(new MultiSigWallet(multisigOwners, 2));
         
         // Подготовка данных для инициализации
         bytes memory initData = abi.encodeWithSelector(
             WeValue.initialize.selector,
             "WeValue",
             "WEVALUE",
-            owner,
+            ownerWallet,
             address(mockAavePool), // _aavePool
             address(mockPriceOracle), // _priceOracle
             address(mockProtectedAsset), // _protectedAsset
@@ -85,7 +99,7 @@ contract WeValueTest is Test {
     function test_Initialization() public view {
         assertEq(weValue.name(), "WeValue", "Incorrect token name");
         assertEq(weValue.symbol(), "WEVALUE", "Incorrect token symbol");
-        assertEq(weValue.owner(), owner, "Incorrect owner");
+        assertEq(weValue.owner(), ownerWallet, "Incorrect owner");
         assertEq(address(weValue.aavePool()), address(mockAavePool), "Incorrect Aave pool address");
         assertEq(address(weValue.router()), address(mockUniswapRouter), "Incorrect Uniswap router address");
         assertEq(address(weValue.priceOracle()), address(mockPriceOracle), "Incorrect price oracle address");
@@ -93,7 +107,7 @@ contract WeValueTest is Test {
         assertEq(address(weValue.safeAssetPriceOracle()), address(mockSafeAssetPriceOracle), "Incorrect safe asset price oracle address");
         assertEq(address(weValue.safeAsset()), address(mockSafeAsset), "Incorrect safe asset address");
         assertEq(weValue.depegThreshold(), 95_000_000, "Incorrect depeg threshold");
-        assertEq(weValue.version(), "0.2", "Incorrect version");
+        assertEq(weValue.version(), "0.3", "Incorrect version");
     }
 
     /// @dev Тестирует успешное пожертвование.
@@ -139,7 +153,7 @@ contract WeValueTest is Test {
         emit WeValue.EthConverted(ethToConvert, expectedProtectedAssetAmount);
 
         // Вызываем функцию
-        vm.prank(owner);
+        vm.prank(ownerWallet);
         weValue.convertEthToProtectedAsset(expectedProtectedAssetAmount);
 
         // Баланс ETH контракта должен быть 0
@@ -167,7 +181,7 @@ contract WeValueTest is Test {
         vm.expectRevert(WeValue.NoEthToConvert.selector);
 
         // Владелец пытается вызвать функцию при нулевом балансе
-        vm.prank(owner);
+        vm.prank(ownerWallet);
         weValue.convertEthToProtectedAsset(0);
     }
 
@@ -226,7 +240,7 @@ contract WeValueTest is Test {
     function test_setSafeAsset_Success() public {
         vm.expectEmit();
         emit WeValue.SafeAssetChanged(address(mockSafeAsset2));
-        vm.prank(owner);
+        vm.prank(ownerWallet);
         weValue.setSafeAsset(address(mockSafeAsset2));
         assertEq(address(weValue.safeAsset()), address(mockSafeAsset2), "safeAsset was not updated correctly");
     }
@@ -441,7 +455,7 @@ contract WeValueTest is Test {
     /// @dev Тестирует, что вызов withdrawalProtectedAsset не от имени владельца отменяется.
     function test_WithdrawalProtectedAsset_RevertNotOwner() public {
         // Ожидаем ошибку, специфичную для Ownable
-        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, alice));
+        vm.expectRevert(abi.encodeWithSelector(WeValue.NotMultiSigOwner.selector, alice));
 
         // Алиса (не владелец) пытается вызвать функцию
         vm.prank(alice);
@@ -605,7 +619,7 @@ contract WeValueTest is Test {
         // Ожидаем ошибку OperationHasNoChecks
         vm.expectRevert(WeValue.OperationHasNoChecks.selector);
 
-        vm.prank(owner);
+        vm.prank(ownerWallet);
         weValue.confirmWithdrawal(operationId);
 
         // Убеждаемся, что операция все еще в списке неподтвержденных
@@ -636,7 +650,7 @@ contract WeValueTest is Test {
 
         // Развертывание реализации и прокси
         WeValue forkImplementation = new WeValue();
-        
+
         // Устанавливаем depegThreshold ВЫШЕ текущей цены, чтобы симулировать отвязку
         // Цена USDC/USD имеет 8 знаков. 101_000_000 = $1.01
         uint256 depegThreshold = 101_000_000; 
@@ -645,7 +659,7 @@ contract WeValueTest is Test {
             WeValue.initialize.selector,
             "WeValue",
             "WEVALUE",
-            owner,
+            ownerWallet,
             aavePool,
             usdcUsdOracle,
             usdc,
@@ -705,7 +719,7 @@ contract WeValueTest is Test {
             WeValue.initialize.selector,
             "WeValue",
             "WEVALUE",
-            owner,
+            ownerWallet,
             aavePool,
             usdcUsdOracle,
             usdc,
@@ -772,7 +786,7 @@ contract WeValueTest is Test {
             WeValue.initialize.selector,
             "WeValue",
             "WEVALUE",
-            owner,
+            ownerWallet,
             aavePool,
             usdcUsdOracle,
             usdc,
@@ -849,7 +863,7 @@ contract WeValueTest is Test {
             WeValue.initialize.selector,
             "WeValue",
             "WEVALUE",
-            owner,
+            ownerWallet,
             aavePool,
             wethUsdOracle,      // protectedAsset oracle (WETH)
             weth,               // protectedAsset (WETH)
