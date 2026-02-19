@@ -51,12 +51,12 @@ contract DeployWeValueWithMultiSig is Script {
         vm.startBroadcast(uint256(deployerPrivateKeyBytes));
 
         // ========== ШАГ 1: MultiSigWallet ==========
-        console.log("\n--- Step 1: Deploying MultiSigWallet ---");
+        console.log("\n--- Deploying MultiSigWallet ---");
         MultiSigWallet multiSig = new MultiSigWallet(multisigOwners, requiredConfirmations);
         console.log("MultiSigWallet:", address(multiSig));
 
         // ========== ШАГ 2: WeValue Implementation ==========
-        console.log("\n--- Step 2: Deploying WeValue implementation ---");
+        console.log("\n--- Deploying WeValue implementation ---");
         WeValue implementation = new WeValue();
         console.log("WeValue implementation:", address(implementation));
 
@@ -77,12 +77,12 @@ contract DeployWeValueWithMultiSig is Script {
         );
 
         // ========== ШАГ 4: Proxy ==========
-        console.log("\n--- Step 4: Deploying ERC1967Proxy ---");
+        console.log("\n--- Deploying ERC1967Proxy ---");
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
         console.log("Proxy (WeValue):", address(proxy));
 
         // ========== ШАГ 5: Verify ==========
-        console.log("\n--- Step 5: Verifying setup ---");
+        console.log("\n--- Verifying setup ---");
         WeValue weValue = WeValue(payable(address(proxy)));
         
         console.log("WeValue owner:", weValue.owner());
@@ -97,9 +97,6 @@ contract DeployWeValueWithMultiSig is Script {
         console.log("MultiSigWallet:", address(multiSig));
         console.log("WeValue Implementation:", address(implementation));
         console.log("WeValue Proxy:", address(proxy));
-        console.log("\n=== Save these addresses for frontend ===");
-        console.log("VITE_WEVALUE_ADDRESS=", address(proxy));
-        console.log("VITE_MULTISIG_ADDRESS=", address(multiSig));
-        console.log("\n Deployment successful!");
+          console.log("\n Deployment successful!");
     }
 }

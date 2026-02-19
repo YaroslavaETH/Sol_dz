@@ -27,8 +27,6 @@
   "homepage": "https://github.com/YaroslavaETH/Sol_dz#readme",
   "dependencies": {
     "@aave/core-v3": "^1.19.3",
-    "@chainlink/contracts": "^1.5.0",
-    "@rainbow-me/rainbowkit": "^2.2.10",
-    "chart.js": "^4.5.1"
+    "@chainlink/contracts": "^1.5.0"
   }
 }
